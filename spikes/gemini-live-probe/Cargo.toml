@@ -1,0 +1,12 @@
+[package]
+name = "gemini-live-probe"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+anyhow = "1"
+rpassword = "7"
+rustls = { version = "0.23", default-features = false, features = ["std", "ring", "tls12"] }
+serde_json = "1"
+tungstenite = { version = "0.28", features = ["rustls-tls-native-roots"] }

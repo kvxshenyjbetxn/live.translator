@@ -1,0 +1,11 @@
+/AGENTS.md
+.superpowers/
+.pi/
+node_modules/
+dist/
+src-tauri/gen/
+**/target/
+.env
+.env.*
+!.env.example
+.DS_Store

@@ -1,0 +1,13 @@
+[package]
+name = "macos-process-audio-spike"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+anyhow = "1"
+objc2 = "0.6"
+objc2-foundation = "0.3"
+objc2-core-foundation = "0.3"
+objc2-core-audio = "0.3"
+objc2-core-audio-types = "0.3"

@@ -1,0 +1,18 @@
+[package]
+name = "live-translator"
+version.workspace = true
+edition = "2021"
+publish = false
+
+[lib]
+name = "live_translator_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+translator-core = { path = "../crates/translator-core" }
+serde = { version = "1", features = ["derive"] }
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
