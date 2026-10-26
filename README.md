@@ -1,6 +1,6 @@
 # Live Translator
 
-**Завантаження для macOS Apple Silicon:** [GitHub Releases](https://github.com/kvxshenyjbetxn/live.translator/releases). Розпакуйте ZIP і відкрийте `Live Translator.app`. Програма ще не нотаризована Apple; macOS може попросити окремий дозвіл на запуск. Windows/Linux-аудіомодулі поки не готові.
+**Завантаження для macOS Apple Silicon:** [GitHub Releases](https://github.com/kvxshenyjbetxn/live.translator/releases). Розпакуйте ZIP і перенесіть `Live Translator.app` до «Програми». Починаючи з 0.6.2 збірка налаштована на повний локальний **ad-hoc підпис**, але **не нотаризована Apple**: macOS може блокувати перший запуск. Див. [інструкцію встановлення та дозволу запуску](INSTALL-macOS.txt), яка також додається до нового ZIP. Попередні релізи не змінюються автоматично. Windows/Linux-аудіомодулі поки не готові.
 
 macOS-first desktop application on **Rust + Tauri 2 + Svelte 5**. Select an application's audio, translate through the official Gemini Live Translation API, and listen with separate original/translation volume controls.
 
@@ -21,11 +21,19 @@ npm run tauri -- dev
 
 # Local macOS app bundle; no publishing, paid services or signing-account changes:
 npm run tauri -- build --bundles app
+# Build, verify ad-hoc signature, package app + instructions, generate SHA-256:
+npm run package:macos
 # Faster local debug bundle:
 npm run tauri -- build --debug --bundles app
 ```
 
 Build output: `target/release/bundle/macos/Live Translator.app` (or `target/debug/bundle/macos/Live Translator.app` with `--debug`). No auto-update, background startup or automatic capture on launch.
+
+`npm run package:macos` builds for the current Mac's Rust host architecture with an explicit ad-hoc identity (`-`), verifies the bundle with `codesign --verify --deep --strict`, and produces `target/release/distribute/Live-Translator_<version>_macOS_<arm64|x64>.zip` plus `.zip.sha256`. The ZIP contains the app and `INSTALL-macOS.txt`; `ditto` preserves macOS bundle metadata. The target-specific app is under `target/<Rust-host>/release/bundle/macos/`. No Apple account, certificate, notarization, upload or paid service is used. Intel packaging is supported by the script but must be built and verified on an Intel Mac; it has not been validated here.
+
+A valid ad-hoc signature seals code/resources but does not establish a trusted publisher or satisfy Gatekeeper notarization. The installation instructions explain **Open Anyway**, and, only for a trusted download with a matching checksum and valid signature, targeted quarantine removal. Never disable Gatekeeper globally. Local signature/archive checks do not prove first-launch behavior on another quarantined or managed Mac.
+
+Signing reference: [Tauri macOS code signing — ad-hoc](https://v2.tauri.app/distribute/sign/macos/).
 
 ## First use
 

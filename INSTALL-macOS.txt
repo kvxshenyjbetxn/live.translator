@@ -1,0 +1,76 @@
+Live Translator — встановлення на macOS / macOS installation
+
+УКРАЇНСЬКА
+
+Вимоги: macOS 14.2 або новіша. arm64 — для Apple Silicon (M1 і новіші),
+x64 — для Intel. Зараз аудіозахоплення реалізоване лише для macOS.
+
+Програма має безкоштовний локальний ad-hoc підпис, але НЕ має Developer ID
+та нотаризації Apple. Цей підпис захищає цілісність бандла, але не підтверджує
+особу розробника й не означає, що Apple перевірила програму.
+
+1. Завантажте ZIP та відповідний .sha256 лише з довіреного релізу:
+   https://github.com/kvxshenyjbetxn/live.translator/releases
+   Перед розпакуванням перевірте контрольну суму в Terminal у папці завантажень:
+     shasum -a 256 -c Live-Translator_<версія>_macOS_<архітектура>.zip.sha256
+   Замініть <версія> й <архітектура> фактичними значеннями з назви файлу.
+   Має бути «OK». Контрольна сума перевіряє відповідність ZIP, але не особу
+   автора; файл контрольної суми також має походити з довіреного джерела.
+2. Розпакуйте ZIP і перенесіть Live Translator.app до «Програми» (/Applications).
+3. Спробуйте відкрити програму. Якщо macOS заблокує запуск, відкрийте
+   «Системні параметри → Приватність і безпека», знайдіть повідомлення про
+   Live Translator і натисніть «Відкрити попри це» (Open Anyway).
+   Підтверджуйте лише якщо довіряєте джерелу. Назви залежать від мови/версії ОС.
+4. Якщо macOS називає програму «пошкодженою», не пропонує Open Anyway,
+   але контрольна сума правильна й ви довіряєте цьому релізу, перевірте підпис:
+     codesign --verify --deep --strict --verbose=2 "/Applications/Live Translator.app"
+   Лише якщо команда завершилась успішно, можна прибрати карантин САМЕ
+   з цієї програми й повторити запуск:
+     xattr -dr com.apple.quarantine "/Applications/Live Translator.app"
+   Це свідомий обхід перевірки карантину для конкретної програми, не нотаризація.
+   Не вимикайте Gatekeeper глобально й не використовуйте sudo. Якщо підпис
+   не проходить перевірку, не запускайте програму: завантажте її знову.
+   Не обходьте окреме попередження macOS про шкідливе ПЗ.
+5. У налаштуваннях програми введіть власний Gemini API-ключ та перевірте
+   з'єднання. Ключ зберігається відкритим текстом у локальному settings.json.
+   Після початку перекладу дозвольте запис системного аудіо, якщо macOS попросить.
+   Доступ до мікрофона не потрібен. Аудіо вибраної програми надсилається Google
+   лише після явного початку перекладу.
+
+Ці кроки не гарантують запуск на Mac з корпоративними обмеженнями безпеки.
+
+ENGLISH
+
+Requires macOS 14.2+. Choose arm64 for Apple Silicon (M1 or newer), x64 for
+Intel. Audio capture currently supports macOS only.
+
+This application is ad-hoc signed, NOT Developer ID signed or Apple notarized.
+The signature seals the bundle; it does not identify the publisher or imply
+Apple has reviewed the app.
+
+1. Download the ZIP and matching .sha256 from a release you trust:
+   https://github.com/kvxshenyjbetxn/live.translator/releases
+   In Terminal, in the download directory, run:
+     shasum -a 256 -c Live-Translator_<version>_macOS_<architecture>.zip.sha256
+   Replace the placeholders with the actual filename values. Expect “OK”.
+   A checksum checks file consistency, not publisher identity; obtain the
+   checksum itself from a trusted source too.
+2. Extract the ZIP and move Live Translator.app to /Applications.
+3. Try opening it. If blocked, go to System Settings → Privacy & Security,
+   locate the Live Translator message, and choose Open Anyway. Confirm only
+   if you trust the source. Labels vary by OS version and language.
+4. If macOS says the app is “damaged” and offers no Open Anyway, first confirm
+   the archive checksum and verify the app signature:
+     codesign --verify --deep --strict --verbose=2 "/Applications/Live Translator.app"
+   Only if verification succeeds and you trust this release, remove quarantine
+   for this app alone, then try launching again:
+     xattr -dr com.apple.quarantine "/Applications/Live Translator.app"
+   This explicitly bypasses quarantine checks for this app; it is NOT
+   notarization. Do not globally disable Gatekeeper or use sudo. If signature
+   verification fails, do not launch; download again. Do not bypass a separate
+   macOS malware warning. Managed Macs may still prevent installation.
+5. In app settings, enter your own Gemini API key and test the connection.
+   The key is stored as plaintext in local settings.json. Grant System Audio
+   Recording permission when prompted after starting translation. No microphone
+   permission is needed. Selected application audio goes to Google only after
+   you explicitly start translation.

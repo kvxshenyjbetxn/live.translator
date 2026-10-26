@@ -1,6 +1,6 @@
 {
   "name": "live-translator",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,8 @@
     "build": "vite build",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "package:macos": "bash scripts/package-macos.sh"
   },
   "dependencies": { "@tauri-apps/api": "^2.0.0", "svelte": "^5.0.0" },
   "devDependencies": {
