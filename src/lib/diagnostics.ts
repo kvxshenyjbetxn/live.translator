@@ -1,4 +1,5 @@
 import type { DiagnosticsSnapshot } from '../types';
+import { translate, type Locale } from './i18n';
 
 interface Measurement { time: number; value: number | null }
 interface Point { x: number; y: number }
@@ -35,4 +36,4 @@ export function diagnosticMessages(diagnostics: DiagnosticsSnapshot): string[] {
   return ['Значного накопичення в локальних чергах не виявлено. Ці вимірювання не визначають час роботи моделі.'];
 }
 
-export const formatMeasurement = (value: number, unit: string) => `${value.toLocaleString('uk-UA', { maximumFractionDigits: unit === 'мс' ? 0 : 2 })} ${unit}`;
+export const formatMeasurement = (value: number, unit: string, language: Locale = 'uk') => `${value.toLocaleString(language === 'en' ? 'en-US' : 'uk-UA', { maximumFractionDigits: unit === 'мс' ? 0 : 2 })} ${translate(unit, language)}`;

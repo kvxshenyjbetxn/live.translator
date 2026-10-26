@@ -39,6 +39,9 @@ pub struct Settings {
     pub schema_version: u32,
     pub api_key: String,
     pub target_language: String,
+    pub theme: String,
+    pub accent_color: String,
+    pub interface_language: String,
     pub original_volume: f32,
     pub translation_volume: f32,
     pub selected_source_id: Option<String>,
@@ -52,6 +55,9 @@ impl Default for Settings {
             schema_version: 1,
             api_key: String::new(),
             target_language: "uk".into(),
+            theme: "default".into(),
+            accent_color: "#c5e89d".into(),
+            interface_language: "uk".into(),
             original_volume: 0.15,
             translation_volume: 0.7,
             selected_source_id: None,
@@ -69,6 +75,13 @@ impl Settings {
         if !LANGUAGES
             .iter()
             .any(|language| language.code == self.target_language)
+            || !matches!(self.theme.as_str(), "default" | "amoled")
+            || !matches!(self.interface_language.as_str(), "uk" | "en")
+            || !(self.accent_color.len() == 7
+                && self.accent_color.starts_with('#')
+                && self.accent_color.as_bytes()[1..]
+                    .iter()
+                    .all(u8::is_ascii_hexdigit))
             || !valid_gain(self.original_volume)
             || !valid_gain(self.translation_volume)
             || self.api_key.len() > 4096
@@ -168,6 +181,45 @@ mod tests {
         let saved = serde_json::to_value(load_settings(dir.path()).unwrap()).unwrap();
         assert_eq!(saved["captureShortcut"], "Control+Shift+KeyT");
         assert_eq!(saved["lastCapturedSourceId"], "app:/Test.app");
+    }
+    #[test]
+    fn appearance_defaults_roundtrip_and_validation() {
+        let legacy: Settings =
+            serde_json::from_str(r#"{"targetLanguage":"en","apiKey":"test-only"}"#).unwrap();
+        let value = serde_json::to_value(&legacy).unwrap();
+        assert_eq!(value["theme"], "default");
+        assert_eq!(value["accentColor"], "#c5e89d");
+        assert_eq!(value["interfaceLanguage"], "uk");
+        let dir = tempfile::tempdir().unwrap();
+        let mut value = value;
+        value["theme"] = "amoled".into();
+        value["accentColor"] = "#102aEF".into();
+        value["interfaceLanguage"] = "en".into();
+        let custom: Settings = serde_json::from_value(value.clone()).unwrap();
+        save_settings(dir.path(), &custom).unwrap();
+        assert!(load_settings(dir.path()).unwrap() == custom);
+        let original = fs::read(dir.path().join("settings.json")).unwrap();
+        for (key, invalid) in [
+            ("theme", "light"),
+            ("interfaceLanguage", "xx"),
+            ("accentColor", "red"),
+            ("accentColor", "#fff"),
+            ("accentColor", "#ffffff00"),
+            ("accentColor", "#gggggg"),
+        ] {
+            let mut invalid_value = value.clone();
+            invalid_value[key] = invalid.into();
+            if let Ok(settings) = serde_json::from_value::<Settings>(invalid_value) {
+                assert!(
+                    save_settings(dir.path(), &settings).is_err(),
+                    "{key}={invalid}"
+                );
+            }
+            assert_eq!(
+                fs::read(dir.path().join("settings.json")).unwrap(),
+                original
+            );
+        }
     }
     #[test]
     fn missing_defaults() {

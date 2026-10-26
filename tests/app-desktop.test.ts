@@ -24,6 +24,33 @@ beforeEach(() => {
   native.api.start.mockImplementation(async () => { current = { ...idle(), sessionId: 1, phase: 'running' }; return 1; });
   native.api.stop.mockImplementation(async () => { current = { ...current, phase: 'idle' }; });
 });
+test('appearance and interface language apply, autosave, sync tray and restore independently of audio language', async () => {
+  const initial = { ...defaults(), apiKey: 'test-key', targetLanguage: 'de', selectedSourceId: source.id };
+  native.api.load.mockResolvedValue(initial);
+  await loaded();
+  await fireEvent.click(screen.getByRole('button', { name: /Налаштування/ }));
+  await fireEvent.change(screen.getByLabelText('Тема'), { target: { value: 'amoled' } });
+  await fireEvent.input(screen.getByLabelText('Колір акценту'), { target: { value: '#ff0088' } });
+  await fireEvent.change(screen.getByLabelText('Мова інтерфейсу'), { target: { value: 'en' } });
+  expect(await screen.findByLabelText('Interface language')).toHaveValue('en');
+  expect(document.documentElement.dataset.theme).toBe('amoled');
+  expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#ff0088');
+  expect(document.documentElement.lang).toBe('en');
+  await waitFor(() => expect(native.api.save.mock.calls.at(-1)?.[0]).toMatchObject({ theme: 'amoled', accentColor: '#ff0088', interfaceLanguage: 'en', targetLanguage: 'de', apiKey: 'test-key' }));
+  await waitFor(() => expect(native.api.syncDesktop.mock.calls.at(-1)?.[0]).toMatchObject({ interfaceLanguage: 'en', targetLanguage: 'de' }));
+  expect(native.api.start).not.toHaveBeenCalled();
+  expect(native.api.stop).not.toHaveBeenCalled();
+});
+test('restores persisted English AMOLED settings before showing the working UI', async () => {
+  native.api.load.mockResolvedValue({ ...defaults(), apiKey: 'test-key', selectedSourceId: source.id, theme: 'amoled', interfaceLanguage: 'en', accentColor: '#123456' });
+  render(App);
+  await waitFor(() => expect(screen.getByRole('button', { name: /Start translation/ })).toBeEnabled());
+  expect(document.documentElement.lang).toBe('en');
+  expect(document.documentElement.dataset.theme).toBe('amoled');
+  expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#123456');
+  expect(native.api.save).not.toHaveBeenCalled();
+});
+
 async function loaded() {
   render(App);
   await waitFor(() => expect(screen.getByRole('button', { name: /Почати переклад/ })).toBeEnabled());

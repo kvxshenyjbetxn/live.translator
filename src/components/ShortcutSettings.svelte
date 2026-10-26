@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy, tick } from 'svelte';
+  import { t } from '../lib/i18n';
   import type { Settings } from '../types';
   import type { ShortcutStatus } from '../lib/desktop';
   import { shortcutFromKey } from '../lib/shortcut';
@@ -47,20 +48,20 @@
 </script>
 <svelte:window onkeydowncapture={key} onkeyupcapture={released}/>
 <div class="card">
-  <h2>Глобальна гаряча клавіша</h2>
-  <p class="muted">Одне натискання запускає захоплення, повторне — зупиняє, навіть після переходу в інше вікно.</p>
-  <label class="field-label" for="shortcut-mode">Дія гарячої клавіші</label>
+  <h2>{$t('Глобальна гаряча клавіша')}</h2>
+  <p class="muted">{$t('Одне натискання запускає захоплення, повторне — зупиняє, навіть після переходу в інше вікно.')}</p>
+  <label class="field-label" for="shortcut-mode">{$t('Дія гарячої клавіші')}</label>
   <select id="shortcut-mode" value={settings.shortcutMode} disabled={disabled || recording || pending} onchange={event => onChange({ shortcutMode: event.currentTarget.value as Settings['shortcutMode'] })}>
-    <option value="activeApplication">Активна програма</option><option value="lastCaptured">Остання захоплена</option>
+    <option value="activeApplication">{$t('Активна програма')}</option><option value="lastCaptured">{$t('Остання захоплена')}</option>
   </select>
-  <p class="subtle">Активна програма — це програма переднього вікна в момент натискання, не окрема вкладка браузера. Live Translator не захоплює себе. На непідтримуваних системах оберіть останню захоплену програму.</p>
+  <p class="subtle">{$t('Активна програма — це програма переднього вікна в момент натискання, не окрема вкладка браузера. Live Translator не захоплює себе. На непідтримуваних системах оберіть останню захоплену програму.')}</p>
   <div class="settings-actions">
-    <button bind:this={recorder} disabled={disabled || pending} onclick={() => { if (!recording) void begin(); }}>{recording ? 'Натисніть комбінацію…' : 'Обрати гарячу клавішу'}</button>
-    <code>{settings.captureShortcut ?? 'Не задана'}</code>
-    {#if recording}<button class="secondary" disabled={pending} onclick={() => { void finish(); }}>Скасувати запис</button>{/if}
-    <button class="secondary" disabled={disabled || recording || pending || !settings.captureShortcut} onclick={() => onChange({ captureShortcut: null })}>Вимкнути гарячу клавішу</button>
+    <button bind:this={recorder} disabled={disabled || pending} onclick={() => { if (!recording) void begin(); }}>{$t(recording ? 'Натисніть комбінацію…' : 'Обрати гарячу клавішу')}</button>
+    <code>{settings.captureShortcut ?? $t('Не задана')}</code>
+    {#if recording}<button class="secondary" disabled={pending} onclick={() => { void finish(); }}>{$t('Скасувати запис')}</button>{/if}
+    <button class="secondary" disabled={disabled || recording || pending || !settings.captureShortcut} onclick={() => onChange({ captureShortcut: null })}>{$t('Вимкнути гарячу клавішу')}</button>
   </div>
-  <p class="subtle" aria-live="polite">{shortcutStatus.active ? `Активна комбінація: ${shortcutStatus.active}` : 'Глобальна клавіша вимкнена.'} {recording ? 'Під час запису захоплення клавішею призупинене. Escape — скасувати.' : ''}</p>
-  {#if message || shortcutStatus.error}<p class="error" role="alert">{message || shortcutStatus.error} Попередня робоча комбінація залишається активною, якщо заміна не вдалася.</p>{/if}
-  {#if shortcutStatus.integrationError}<p class="notice" role="status">{shortcutStatus.integrationError}</p>{/if}
+  <p class="subtle" aria-live="polite">{shortcutStatus.active ? $t('Активна комбінація: {shortcut}', { shortcut: shortcutStatus.active }) : $t('Глобальна клавіша вимкнена.')} {recording ? $t('Під час запису захоплення клавішею призупинене. Escape — скасувати.') : ''}</p>
+  {#if message || shortcutStatus.error}<p class="error" role="alert">{$t(message || shortcutStatus.error || '')} {$t('Попередня робоча комбінація залишається активною, якщо заміна не вдалася.')}</p>{/if}
+  {#if shortcutStatus.integrationError}<p class="notice" role="status">{$t(shortcutStatus.integrationError)}</p>{/if}
 </div>

@@ -4,4 +4,4 @@ exclude = ["spikes/macos-process-audio", "spikes/gemini-live-probe", "spikes/liv
 resolver = "2"
 
 [workspace.package]
-version = "0.5.2"
+version = "0.6.1"

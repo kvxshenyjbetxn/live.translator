@@ -11,6 +11,42 @@ use translator_core::{
     settings::LANGUAGES,
 };
 
+fn localized(text: &str, language: &str) -> String {
+    static CATALOG: std::sync::OnceLock<std::collections::HashMap<String, String>> =
+        std::sync::OnceLock::new();
+    if language != "en" {
+        return text.into();
+    }
+    CATALOG
+        .get_or_init(|| {
+            serde_json::from_str(include_str!("../../../src/lib/messages.json"))
+                .expect("valid translation catalog")
+        })
+        .get(text)
+        .map(String::as_str)
+        .unwrap_or(text)
+        .into()
+}
+
+#[cfg(test)]
+mod localization_tests {
+    use super::*;
+    #[test]
+    fn tray_labels_and_cached_health_follow_interface_language() {
+        assert_eq!(
+            localized("Готовий до перекладу", "en"),
+            "Ready to translate"
+        );
+        assert_eq!(
+            localized("Готовий до перекладу", "uk"),
+            "Готовий до перекладу"
+        );
+        assert_eq!(localized("Мова перекладу", "en"), "Translation language");
+        assert_eq!(localized("Завантажуємо…", "en"), "Loading…");
+        assert_eq!(localized("Chrome", "en"), "Chrome");
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Color {
     Gray,
@@ -85,6 +121,8 @@ pub struct Model {
     pub sources: Vec<Source>,
     pub selected_source_id: Option<String>,
     pub target_language: String,
+    #[serde(default)]
+    pub interface_language: String,
     pub can_select: bool,
     pub can_start: bool,
     pub can_stop: bool,
@@ -106,25 +144,26 @@ fn menu(
     model: &Model,
     status: &MenuItem<tauri::Wry>,
 ) -> tauri::Result<Menu<tauri::Wry>> {
+    let tr = |text: &str| localized(text, &model.interface_language);
     let menu = Menu::new(app)?;
     menu.append(status)?;
-    let languages = Submenu::new(app, "Мова перекладу", model.can_select)?;
+    let languages = Submenu::new(app, tr("Мова перекладу"), model.can_select)?;
     for language in LANGUAGES {
         languages.append(&CheckMenuItem::with_id(
             app,
             format!("language:{}", language.code),
-            language.name,
+            tr(language.name),
             model.can_select,
             language.code == model.target_language,
             None::<&str>,
         )?)?;
     }
     menu.append(&languages)?;
-    let sources = Submenu::new(app, "Програма", model.can_select)?;
+    let sources = Submenu::new(app, tr("Програма"), model.can_select)?;
     if model.sources.is_empty() {
         sources.append(&MenuItem::new(
             app,
-            "Немає доступних програм",
+            tr("Немає доступних програм"),
             false,
             None::<&str>,
         )?)?;
@@ -142,7 +181,7 @@ fn menu(
     sources.append(&MenuItem::with_id(
         app,
         "refresh",
-        "Оновити програми",
+        tr("Оновити програми"),
         model.can_select,
         None::<&str>,
     )?)?;
@@ -150,37 +189,45 @@ fn menu(
     menu.append(&MenuItem::with_id(
         app,
         "toggle",
-        if model.can_stop {
+        tr(if model.can_stop {
             "Зупинити переклад"
         } else {
             "Почати переклад"
-        },
+        }),
         model.can_start || model.can_stop,
         None::<&str>,
     )?)?;
     menu.append(&MenuItem::with_id(
         app,
         "show",
-        "Відкрити вікно",
+        tr("Відкрити вікно"),
         true,
         None::<&str>,
     )?)?;
     menu.append(&MenuItem::with_id(
         app,
         "exit",
-        "Вийти",
+        tr("Вийти"),
         true,
         None::<&str>,
     )?)?;
     Ok(menu)
 }
 pub fn initialize(app: &AppHandle) -> tauri::Result<()> {
-    let model = Model::default();
-    let status = MenuItem::new(app, "Завантажуємо…", false, None::<&str>)?;
+    let store = app.state::<crate::ConfigStore>();
+    let language = translator_core::settings::load_settings(&store.directory)
+        .unwrap_or_default()
+        .interface_language;
+    let model = Model {
+        interface_language: language,
+        ..Model::default()
+    };
+    let loading = localized("Завантажуємо…", &model.interface_language);
+    let status = MenuItem::new(app, &loading, false, None::<&str>)?;
     TrayIconBuilder::with_id("translator")
         .icon(icon(Color::Gray))
         .icon_as_template(false)
-        .tooltip("Live Translator · завантажуємо…")
+        .tooltip(format!("Live Translator · {loading}"))
         .menu(&menu(app, &model, &status)?)
         .show_menu_on_left_click(true)
         .on_menu_event(|app, event| {
@@ -227,6 +274,14 @@ pub fn sync_desktop(
             tray.set_menu(Some(menu))
                 .map_err(|_| "Не вдалося оновити меню трея.")?;
         }
+        let text = localized(native.last_health.1, &model.interface_language);
+        native
+            .status
+            .set_text(&text)
+            .map_err(|_| "Не вдалося оновити меню трея.")?;
+        if let Some(tray) = app.tray_by_id("translator") {
+            let _ = tray.set_tooltip(Some(format!("Live Translator · {text}")));
+        }
         native.model = model;
     }
     Ok(())
@@ -243,8 +298,9 @@ pub fn update(app: &AppHandle, status: &SessionStatus) {
     }
     if let Some(tray) = app.tray_by_id("translator") {
         let _ = tray.set_icon(Some(icon(next.0)));
-        let _ = tray.set_tooltip(Some(format!("Live Translator · {}", next.1)));
-        let _ = native.status.set_text(next.1);
+        let text = localized(next.1, &native.model.interface_language);
+        let _ = tray.set_tooltip(Some(format!("Live Translator · {text}")));
+        let _ = native.status.set_text(text);
     }
     native.last_health = next;
 }

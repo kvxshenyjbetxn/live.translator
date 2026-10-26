@@ -1,5 +1,6 @@
 export interface Settings {
   schemaVersion: number; apiKey: string; targetLanguage: string;
+  theme: 'default' | 'amoled'; accentColor: string; interfaceLanguage: 'uk' | 'en';
   originalVolume: number; translationVolume: number; selectedSourceId: string | null;
   captureShortcut: string | null; shortcutMode: 'activeApplication' | 'lastCaptured'; lastCapturedSourceId: string | null;
 }
@@ -21,5 +22,5 @@ export interface SessionStatus {
   diagnostics: DiagnosticsSnapshot;
 }
 export interface ConnectionReport { model: string; elapsedMs: number }
-export const defaults = (): Settings => ({ schemaVersion: 1, apiKey: '', targetLanguage: 'uk', originalVolume: .15, translationVolume: .7, selectedSourceId: null, captureShortcut: null, shortcutMode: 'activeApplication', lastCapturedSourceId: null });
+export const defaults = (): Settings => ({ schemaVersion: 1, apiKey: '', targetLanguage: 'uk', theme: 'default', accentColor: '#c5e89d', interfaceLanguage: 'uk', originalVolume: .15, translationVolume: .7, selectedSourceId: null, captureShortcut: null, shortcutMode: 'activeApplication', lastCapturedSourceId: null });
 export const idle = (): SessionStatus => ({ sessionId: 0, phase: 'idle', elapsedSeconds: 0, inputLevel: 0, sentAudioSeconds: 0, receivedAudioSeconds: 0, playbackBacklogSeconds: 0, playbackSpeed: 1, message: null, diagnostics: emptyDiagnostics() });

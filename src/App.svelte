@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { applyAppearance } from './lib/appearance';
+  import { t, locale } from './lib/i18n';
   import { version } from '../package.json';
   import { listen } from '@tauri-apps/api/event';
   import { CloseCoordinator } from './lib/close';
@@ -12,6 +14,8 @@
   import Translation from './components/Translation.svelte';
   import SettingsView from './components/Settings.svelte';
   let settings = $state(defaults());
+  $effect(() => { applyAppearance(settings); });
+  $effect(() => { locale.set(settings.interfaceLanguage); document.documentElement.lang = settings.interfaceLanguage; });
   let status = $state(idle());
   let sources = $state<AudioSource[]>([]);
   let languages = $state<Language[]>([{ code: 'uk', name: 'Українська' }]);
@@ -50,7 +54,7 @@
     if (!desktop || !loaded) return;
     const allowed = !closing && !checking && !recording;
     const model: MenuModel = {
-      revision: menuRevision,
+      revision: menuRevision, interfaceLanguage: settings.interfaceLanguage,
       sources: sources.map(({ id, name }) => ({ id, name })), selectedSourceId: settings.selectedSourceId,
       targetLanguage: settings.targetLanguage, canSelect: allowed && !busy && !starting,
       canStart: allowed && !busy && !starting && !!selected && !!settings.apiKey.trim() && !sourceError,
@@ -193,18 +197,18 @@
   });
 </script>
 <div class="shell" inert={closing}>
-  <aside class="sidebar"><div class="brand"><span class="brand-mark">≋</span><div>Live Translator<small>ТВІЙ ЖИВИЙ ПЕРЕКЛАД</small></div></div>
-    <button class="navigation-item" class:chosen={tab === 'translation'} onclick={() => tab = 'translation'}>◉ &nbsp; Переклад</button>
+  <aside class="sidebar"><div class="brand"><span class="brand-mark">≋</span><div>Live Translator<small>{$t('ТВІЙ ЖИВИЙ ПЕРЕКЛАД')}</small></div></div>
+    <button class="navigation-item" class:chosen={tab === 'translation'} onclick={() => tab = 'translation'}>◉ &nbsp; {$t('Переклад')}</button>
     <Sources {sources} selected={settings.selectedSourceId} disabled={!loaded || busy || starting || checking || closing} onSelect={id => { change({ selectedSourceId: id }); tab = 'translation'; }} onRefresh={() => { void refreshSources(); }}/>
-    <div class="sidebar-bottom"><p>Захоплюється лише вибрана програма. Інші звуки не змінюються.</p><button class="navigation-item" class:chosen={tab === 'settings'} onclick={() => tab = 'settings'}>⚙ &nbsp; Налаштування</button><span class="version">v{version} · macOS-first</span></div>
+    <div class="sidebar-bottom"><p>{$t('Захоплюється лише вибрана програма. Інші звуки не змінюються.')}</p><button class="navigation-item" class:chosen={tab === 'settings'} onclick={() => tab = 'settings'}>⚙ &nbsp; {$t('Налаштування')}</button><span class="version">v{version} · macOS-first</span></div>
   </aside>
   <div class="main-column"><main>
-    {#if !desktop}<div class="notice">Це браузерний перегляд інтерфейсу. Захоплення звуку та збереження доступні лише в desktop-програмі.</div>{/if}
-    {#if error}<div class="error" role="alert">{error}</div>{/if}
-    {#if sourceError && tab === 'translation'}<div class="notice" role="alert">{sourceError}</div>{/if}
-    {#if desktop && !loaded}<div class="notice">{loading ? 'Завантажуємо налаштування…' : 'Налаштування не завантажено. Файл не буде перезаписано.'}{#if !loading}<button class="secondary" onclick={() => { void load(); }}>Повторити завантаження</button>{/if}</div>{/if}
+    {#if !desktop}<div class="notice">{$t('Це браузерний перегляд інтерфейсу. Захоплення звуку та збереження доступні лише в desktop-програмі.')}</div>{/if}
+    {#if error}<div class="error" role="alert">{$t(error)}</div>{/if}
+    {#if sourceError && tab === 'translation'}<div class="notice" role="alert">{$t(sourceError)}</div>{/if}
+    {#if desktop && !loaded}<div class="notice">{$t(loading ? 'Завантажуємо налаштування…' : 'Налаштування не завантажено. Файл не буде перезаписано.')}{#if !loading}<button class="secondary" onclick={() => { void load(); }}>{$t('Повторити завантаження')}</button>{/if}</div>{/if}
     {#if tab === 'settings'}<SettingsView {settings} {directory} state={saveState} disabled={!loaded || closing} {checking} connectionBlocked={busy || starting} {connectionMessage} {connectionError} {shortcutStatus} onRecording={recordShortcut} onCheck={() => { void checkConnection(); }} onChange={change} onRetry={() => { void retrySave(); }} onOpen={() => { void openDirectory(); }}/>
     {:else}<Translation {settings} status={displayStatus} sourceName={selected?.name ?? null} {languages} disabled={!loaded || closing || checking || recording} canStart={!!selected && !!settings.apiKey.trim() && !sourceError} onStart={() => { void start(); }} onStop={() => { void stop(); }} onChange={change}/>{/if}
-  </main><footer><span class:error-text={saveState === 'error'}>{!desktop ? 'Лише попередній перегляд' : !loaded ? 'Налаштування недоступні' : saveState === 'error' ? '● Не збережено · відкрийте налаштування' : saveState === 'saving' || saveState === 'unsaved' ? '◌ Зберігаємо…' : '● Усі зміни збережено'}</span><span>Аудіозапис не зберігається</span></footer></div>
+  </main><footer><span class:error-text={saveState === 'error'}>{$t(!desktop ? 'Лише попередній перегляд' : !loaded ? 'Налаштування недоступні' : saveState === 'error' ? '● Не збережено · відкрийте налаштування' : saveState === 'saving' || saveState === 'unsaved' ? '◌ Зберігаємо…' : '● Усі зміни збережено')}</span><span>{$t('Аудіозапис не зберігається')}</span></footer></div>
 </div>
-{#if closing}<div class="close-overlay"><dialog open class="close-dialog" aria-modal="true" aria-label="Завершення роботи" tabindex="-1" use:focusCloseDialog><h2>{closeFailed ? 'Не вдалося завершити роботу' : 'Завершуємо роботу…'}</h2><p>{closeFailed ? 'Не вдалося зберегти зміни або завершити очищення аудіо. Можна повторити спробу чи вийти без збереження; очищення аудіо все одно обов’язкове.' : 'Зберігаємо останні зміни та повертаємо оригінальний звук.'}</p>{#if closeFailed}<div class="close-actions"><button onclick={() => { void requestClose(); }}>Повторити</button><button onclick={() => { void requestClose(true); }}>Вийти без збереження</button><button onclick={() => { void cancelClose(); }}>Залишитися</button></div>{/if}</dialog></div>{/if}
+{#if closing}<div class="close-overlay"><dialog open class="close-dialog" aria-modal="true" aria-label={$t('Завершення роботи')} tabindex="-1" use:focusCloseDialog><h2>{$t(closeFailed ? 'Не вдалося завершити роботу' : 'Завершуємо роботу…')}</h2><p>{$t(closeFailed ? 'Не вдалося зберегти зміни або завершити очищення аудіо. Можна повторити спробу чи вийти без збереження; очищення аудіо все одно обов’язкове.' : 'Зберігаємо останні зміни та повертаємо оригінальний звук.')}</p>{#if closeFailed}<div class="close-actions"><button onclick={() => { void requestClose(); }}>{$t('Повторити')}</button><button onclick={() => { void requestClose(true); }}>{$t('Вийти без збереження')}</button><button onclick={() => { void cancelClose(); }}>{$t('Залишитися')}</button></div>{/if}</dialog></div>{/if}

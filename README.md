@@ -38,6 +38,14 @@ Build output: `target/release/bundle/macos/Live Translator.app` (or `target/debu
 
 Only the selected application's process group is captured. Browsers may have multiple helper processes; selecting Chrome is not selecting a single browser tab. Other programs' sound should remain unaffected. If the source's audio process restarts, refresh and manually start again; the app will not silently attach to a reused PID.
 
+## Вигляд і мова / Appearance and language
+
+У **Налаштування → Вигляд і мова** доступні поточна темна тема та **чорна AMOLED**, довільний колір акценту через палітру або HEX (`#RRGGBB`) і скидання до типового зеленого `#c5e89d`. Текст акцентних кнопок автоматично стає чорним або білим для читабельності. Помилки й попередження зберігають свої семантичні кольори.
+
+**Мова інтерфейсу: Українська / English** перемикається без перезапуску, включно з діагностикою й меню трея; вона не змінює мову перекладу аудіо та не перезапускає захоплення. Типові значення — поточна тема, зелений акцент і українська. Усе автоматично зберігається в тому самому `settings.json`; старі файли отримують нові типові параметри без втрати решти налаштувань.
+
+In **Settings → Appearance and language**, choose Original dark or AMOLED black, any accent with the color picker or a full RGB HEX code, and Ukrainian or English. Changes apply immediately and persist across restarts. Interface language is independent of the audio translation language. External technical errors and application/brand names are preserved. Native window chrome and the system color picker follow the operating system's language and appearance.
+
 ## Трей і гаряча клавіша
 
 - Іконка в системному треї (на macOS — у рядку меню) відкриває стандартне меню: мова перекладу, програма, оновлення джерел, старт/стоп, відкрити вікно, вихід. Вибір програми не запускає передавання аудіо. Під час перекладу мова та джерело заблоковані.

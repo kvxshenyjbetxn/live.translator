@@ -2090,12 +2090,13 @@ checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
 
 [[package]]
 name = "live-translator"
-version = "0.5.2"
+version = "0.6.1"
 dependencies = [
  "objc2",
  "objc2-app-kit",
  "objc2-foundation",
  "serde",
+ "serde_json",
  "tauri",
  "tauri-build",
  "tauri-plugin-global-shortcut",
@@ -4326,7 +4327,7 @@ dependencies = [
 
 [[package]]
 name = "translator-core"
-version = "0.5.2"
+version = "0.6.1"
 dependencies = [
  "base64 0.22.1",
  "cpal",

@@ -5,6 +5,13 @@ import Translation from '../src/components/Translation.svelte';
 import Sources from '../src/components/Sources.svelte';
 import { defaults, idle, type Settings } from '../src/types';
 
+test('appearance and language controls are the last settings card', () => {
+  const { container } = render(SettingsView, { settings: defaults(), directory: '/test', state: 'saved', onChange: () => {}, onRetry: () => {}, onOpen: () => {} });
+  const cards = container.querySelectorAll('.settings-view > .card');
+  expect(cards[cards.length - 1]).toHaveClass('appearance-settings');
+  expect(cards[0]).toContainElement(screen.getByLabelText('Gemini API-ключ'));
+});
+
 test('key is masked, reveal is explicit, clear updates settings and plaintext warning is visible', async () => {
   let changed: Partial<Settings> = {};
   render(SettingsView, { settings: { ...defaults(), apiKey: 'test-only' }, directory: '/test/config', state: 'error', onChange: patch => { changed = patch; }, onRetry: () => {}, onOpen: () => {} });
