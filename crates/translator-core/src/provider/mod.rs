@@ -71,6 +71,7 @@ pub enum ProviderError {
 pub enum TranslationEvent {
     Ready,
     Audio(Vec<i16>),
+    Pong(Vec<u8>),
 }
 pub fn setup(config: &TranslationConfig) -> Value {
     json!({"setup": {"model": "models/gemini-3.5-live-translate-preview", "generationConfig": {

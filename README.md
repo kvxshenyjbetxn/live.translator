@@ -31,7 +31,7 @@ Build output: `target/release/bundle/macos/Live Translator.app` (or `target/debu
 
 1. Open Settings / «Налаштування». Paste your Google AI Studio API key. It is masked by default, with explicit reveal and delete actions. Use **«Перевірити з’єднання»** beside the key: settings are flushed first, then a short Live Translation session is opened and closed **without audio**. It checks access to the actual model, not only an HTTP endpoint. Stop translation first; the test cannot run concurrently with capture or another check. It does not establish remaining quota or guarantee a later uninterrupted stream.
 2. Changes save automatically. Wait for the saved indicator; failures stay visible and can be retried. Closing flushes pending edits or offers explicit retry/discard.
-3. Play audio in the source application. Refresh/select it in the sidebar, choose the target language and click «Почати переклад».
+3. Refresh/select the source in the sidebar, choose the target language and click «Почати переклад». A cancellable **5-second countdown** gives you time to switch to the source and start the video. No capture or Google connection begins during the countdown; the active source audio process is resolved afterward. If the source is not listed yet, briefly play audio and refresh first.
 4. Grant macOS **System Audio Recording** permission if requested (System Settings → Privacy & Security; wording varies by OS release). No microphone access is required. After changing permissions, macOS may require restarting the app.
 5. Adjust original and translated volume independently while running. Default: original 15%, translation 70%. At original 0%, hear only translation. Original is live; translated speech is delayed, not synchronized with video.
 6. Stop returns the source's native sound and cuts any queued translation tail. Closing the window or Cmd+Q also stops and cleans up first.
@@ -52,12 +52,26 @@ Source audio is transmitted to **Google** only after explicit start. It is not s
 
 Model: `gemini-3.5-live-translate-preview`, official bidirectional Live API. First target languages in the UI: Ukrainian, English, Polish, German. Input: PCM16 mono 16 kHz in 100ms chunks; output: PCM16 mono 24 kHz. Current capture supports Float32 mono/stereo at 44.1/48 kHz, and common output PCM formats; other capture layouts/rates fail clearly instead of being reinterpreted.
 
+## Діагностика затримки
+
+Під час перекладу компактна панель показує **останні 10 вимірювань пінгу** та історію **останніх 10 секунд для черг**:
+
+- **Відгук Google (мс)** — Ping → Pong поточного WebSocket-з’єднання, не швидкість завантаження і не час роботи моделі. Контрольний Ping надсилається приблизно раз на 4 секунди; кожен стовпчик графіка відповідає одному фактичному вимірюванню. Стовпчики розташовані щільно поруч і зсуваються тільки після нового результату, а не з плином часу. Історія обмежена 10 результатами; давні стовпчики залишаються видимими, проте поточне значення та попередження враховують лише свіжі дані (до 10 секунд). Відсутні/прострочені відповіді — «Немає даних», не нуль і не доказ поганого інтернету. Повільне локальне завершення запису Ping (>100 мс) робить RTT неоднозначним, тому такий результат не використовується.
+- **Черга надсилання (с)** — захоплене аудіо, що чекає передачі: вхідне кільце, неповна порція, черга відправника і поточне надсилання. Окремо показано тривалість останньої операції запису; її завершення не доводить отримання/обробку Google.
+- **Черга озвучення (с)** — вже отриманий переклад у всіх локальних буферах, що чекає відтворення. Це лише одна складова затримки, не відставання від відео.
+
+Кожен рядок має власну підписану шкалу. Пояснення можуть називати кілька спостережуваних проблем одночасно, не приписуючи їх однозначно інтернету чи Google. Пороги — евристики: відгук у середньому ≥500 мс або розмах ≥250 мс за щонайменше трьома свіжими відповідями; черга надсилання ≥0,5 с або озвучення ≥2 с протягом щонайменше 2 с. Одиничний стрибок черги чи тиша не вважаються несправністю.
+
+Історія (10 вимірювань пінгу та 10 секунд черг) зберігається лише в пам’яті, скидається між сесіями та не містить аудіо, ключа або тексту перекладу. Додаткова Gemini-сесія не відкривається. Надсилання аудіо виконується окремим асинхронним завданням із обмеженою чергою (8 порцій по 100 мс плюс одна в роботі), щоб повільний запис не блокував приймання перекладу та локальне відтворення. Переповнення зупиняє сесію явно, не відкидає слова мовчки. Модель, розмір порцій, початковий буфер і політика прискорення не змінені.
+
+**Точну синхронізацію з відео ця панель не вимірює і сама по собі не виправляє.**
+
 ## Failure policy
 
 - One active session. Source and language are locked until stopped. New key applies next start; gains apply immediately.
 - Total network/setup deadline 15s, cancellable connect/read/write. Cleanup target 3s; unusually blocked OS calls cannot be forcibly interrupted safely, so the app reports a timeout rather than pretending cleanup succeeded.
 - Input ring approximately 1s. Server audio packets are staged and fed incrementally into the output ring (target ≤2s, physical capacity 5s), so one packet no longer has to fit the remaining ring space atomically. Local staged+queued audio is bounded at 15s; the worker keeps receiving and accounts for new packets even while staged audio remains, so overload cannot be hidden in an unread transport backlog. Capture/upload and playback processing continue fairly until a protective limit or error. No words are silently discarded. The WebSocket parser separately limits a frame to 1 MiB.
-- When backlog grows, translated playback gently accelerates up to 1.12×; original playback stays at 1×. This simple interpolation-based catch-up can slightly change pitch; it is not pitch-preserving time stretching. Current tempo is shown in session metrics. A brief >5s burst is tolerated; >5s backlog sustained for 20s or a >15s local total still stops clearly to avoid runaway delay.
+- When backlog grows, translated playback gently accelerates up to 1.12×; original playback stays at 1×. This simple interpolation-based catch-up can slightly change pitch; it is not pitch-preserving time stretching. Current tempo is always shown in session metrics, including 1.00×, without appearing/disappearing as catch-up changes. A brief >5s burst is tolerated; >5s backlog sustained for 20s or a >15s local total still stops clearly to avoid runaway delay.
 - No blind reconnect after quota/network/session-limit errors: original returns, and the user chooses when to start again. Diagnostics distinguish the failed stage (connect/setup/send/receive), safe transport categories (TLS/reset/timeout) and explicit server availability codes. Server busy/1013 and internal/1011 failures are not mislabeled as exhausted quota; only explicit 429 indicates quota.
 - Input level reflects actual capture samples; first-chunk timing and buffer length are not semantic translation latency measurements.
 - Output device changes/disconnects require a new manual start. Manual output device selection is not in v0.1.

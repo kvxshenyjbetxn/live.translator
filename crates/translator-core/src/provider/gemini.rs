@@ -193,6 +193,13 @@ fn transport_error(error: Error, stage: NetworkStage) -> ProviderError {
     ProviderError::Transport { stage, reason }
 }
 impl GeminiSender {
+    pub async fn send_ping(&mut self, payload: Vec<u8>) -> Result<(), ProviderError> {
+        tokio::select! {
+            biased;
+            _ = self.cancel.cancelled() => Err(ProviderError::Cancelled),
+            result = tokio::time::timeout(Duration::from_secs(2), self.sink.send(Message::Ping(payload.into()))) => result.map_err(|_| ProviderError::Transport { stage: NetworkStage::Send, reason: TransportFailure::Timeout })?.map_err(|error| transport_error(error, NetworkStage::Send)),
+        }
+    }
     pub async fn send_audio(&mut self, pcm: &[i16]) -> Result<(), ProviderError> {
         if pcm.len() != 1600 {
             return Err(ProviderError::Protocol);
@@ -225,6 +232,7 @@ impl GeminiReceiver {
                 Message::Close(frame) => {
                     return Err(classify_close(frame.map(|frame| u16::from(frame.code))))
                 }
+                Message::Pong(payload) => return Ok(TranslationEvent::Pong(payload.to_vec())),
                 _ => {} // Tungstenite queues control responses, flushed by the periodic sender.
             }
         }
@@ -311,6 +319,48 @@ mod tests {
         )
         .await;
         assert_eq!(result, Err(ProviderError::Timeout));
+    }
+    #[tokio::test]
+    async fn real_local_websocket_roundtrips_probe_without_an_extra_session() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("ws://{}", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+            socket.next().await.unwrap().unwrap();
+            socket
+                .send(Message::Text(r#"{"setupComplete":{}}"#.into()))
+                .await
+                .unwrap();
+            match socket.next().await.unwrap().unwrap() {
+                Message::Ping(payload) => assert_eq!(&payload[..], b"probe"),
+                other => panic!("expected Ping, got {other:?}"),
+            }
+            socket.flush().await.unwrap();
+            // Keep socket alive while the client observes the reply.
+            let _ = socket.next().await;
+        });
+        let cancel = CancellationToken::new();
+        let client = GeminiClient::connect_at(
+            TranslationConfig {
+                api_key: "test".into(),
+                target_language: "uk".into(),
+            },
+            cancel,
+            &url,
+        )
+        .await
+        .unwrap();
+        let (mut sender, mut receiver) = client.split();
+        sender.send_ping(b"probe".to_vec()).await.unwrap();
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(1), receiver.next_event())
+                .await
+                .unwrap()
+                .unwrap(),
+            TranslationEvent::Pong(b"probe".to_vec())
+        );
+        server.abort();
     }
     #[tokio::test]
     async fn real_local_websocket_accepts_binary_and_cancelled_read() {

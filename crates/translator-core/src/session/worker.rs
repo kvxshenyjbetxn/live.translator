@@ -1,4 +1,5 @@
 use super::*;
+use super::{diagnostics::Diagnostics, sender::AudioSender};
 use crate::{
     audio::{buffer::PlaybackBuffer, resample::Resampler, AudioEngine, AudioMeters, FaultSignal},
     capture::{resolve_source, source_still_valid, CaptureHandle},
@@ -38,6 +39,22 @@ async fn next_io(
         _ = tick.tick() => Wake::Tick,
     }
 }
+async fn startup_delay(cancel: &CancellationToken, mut update: impl FnMut(u8)) -> bool {
+    for remaining in (1..=5).rev() {
+        if cancel.is_cancelled() {
+            update(0);
+            return false;
+        }
+        update(remaining);
+        tokio::select! {
+            biased;
+            _ = cancel.cancelled() => { update(0); return false; },
+            _ = tokio::time::sleep(Duration::from_secs(1)) => {},
+        }
+    }
+    update(0);
+    !cancel.is_cancelled()
+}
 fn error(error: impl std::fmt::Display) -> SessionError {
     SessionError::Operation(error.to_string())
 }
@@ -48,6 +65,14 @@ async fn run(
     reporter: Reporter,
     gains: Arc<LiveGains>,
 ) -> Result<(), SessionError> {
+    if !startup_delay(&cancel, |remaining| {
+        reporter.update(|s| s.startup_countdown_seconds = remaining)
+    })
+    .await
+    {
+        return Ok(());
+    }
+    // Resolve the active audio process after the user has had time to start the video.
     let source = resolve_source(&source_id).map_err(error)?;
     if cancel.is_cancelled() {
         return Ok(());
@@ -68,7 +93,7 @@ async fn run(
     if cancel.is_cancelled() {
         return Ok(());
     }
-    let (mut sender, mut receiver) = client.split();
+    let (transport, mut receiver) = client.split();
     let meters = Arc::new(AudioMeters::default());
     let fault = FaultSignal::default();
     let mut capture = CaptureHandle::prepare(source.clone()).map_err(error)?;
@@ -91,7 +116,10 @@ async fn run(
     let mut last_status = Instant::now();
     let mut last_callback = Instant::now();
     let mut previous_callbacks = 0;
-    let mut sent = 0u64;
+    let sender_cancel = cancel.child_token();
+    let mut sender = AudioSender::start(transport, sender_cancel.clone());
+    let mut diagnostics = Diagnostics::default();
+    let mut last_send_time = None;
     let mut received = 0u64;
     let mut chunk = Vec::with_capacity(1600);
     let mut playback = PlaybackBuffer::default();
@@ -101,6 +129,7 @@ async fn run(
     let result: Result<(), SessionError> = async {
         loop {
             if cancel.is_cancelled() { break; }
+            if sender.finished() { return Err(SessionError::Operation("Надсилання аудіо завершилося.".into())); }
             if fault.get() != 0 { return Err(SessionError::Operation(match fault.get() {
                 1 => "Черга вхідного аудіо переповнилася. Перевірте мережу й повторіть запуск.",
                 2 => "Формат вхідного аудіо змінився. Запустіть переклад знову.",
@@ -116,6 +145,12 @@ async fn run(
                             received += count as u64;
                         }
                         Ok(TranslationEvent::Ready) => {}
+                        Ok(TranslationEvent::Pong(payload)) => {
+                            let now = Instant::now();
+                            if let Some(rtt) = sender.pong(&payload, now) {
+                                diagnostics.record_rtt(now.duration_since(started), rtt);
+                            }
+                        }
                         Err(ProviderError::Cancelled) => break,
                         Err(failure) => return Err(error(failure)),
                     }
@@ -126,12 +161,8 @@ async fn run(
                         if let Some(sample) = resampler.push(sample) {
                             chunk.push(sample);
                             if chunk.len() == 1600 {
-                                match sender.send_audio(&chunk).await {
-                                    Ok(()) => sent += 1600,
-                                    Err(ProviderError::Cancelled) => break,
-                                    Err(failure) => return Err(error(failure)),
-                                }
-                                chunk.clear();
+                                sender.enqueue(std::mem::replace(&mut chunk, Vec::with_capacity(1600)))
+                                    .map_err(|_| SessionError::Operation("Черга надсилання аудіо переповнилася. З’єднання не встигає передавати звук; повторіть запуск.".into()))?;
                             }
                         }
                     }
@@ -150,31 +181,78 @@ async fn run(
                 last_health = Instant::now();
             }
             if last_status.elapsed() >= Duration::from_millis(100) {
+                let stats = sender.snapshot();
+                if let Some((time, duration)) = stats.last_send {
+                    if last_send_time != Some(time) {
+                        diagnostics.record_send(time.duration_since(started), duration);
+                        last_send_time = Some(time);
+                    }
+                }
+                let sending = engine.input.slots() as f64 / rate as f64
+                    + (chunk.len() + stats.pending_samples) as f64 / 16000.;
+                diagnostics.observe(started.elapsed(), sending, backlog);
+                let snapshot = diagnostics.snapshot(started.elapsed());
                 let peak = f32::from_bits(meters.peak.swap(0, Ordering::Relaxed)).clamp(0., 1.);
                 reporter.update(|s| {
                     s.elapsed_seconds = started.elapsed().as_secs(); s.input_level = peak;
-                    s.sent_audio_seconds = sent as f64 / 16000.; s.received_audio_seconds = received as f64 / 24000.;
+                    s.sent_audio_seconds = stats.sent_samples as f64 / 16000.; s.received_audio_seconds = received as f64 / 24000.;
                     s.playback_backlog_seconds = backlog; s.playback_speed = speed;
+                    s.diagnostics = snapshot;
                 });
                 last_status = Instant::now();
             }
         }
         Ok(())
     }.await;
+    sender_cancel.cancel();
+    let send_result = sender.finish().await;
     // Drop local mixed playback before removing source mute; never play a stale tail over original.
     drop(engine);
     let cleanup = capture
         .stop()
         .map_err(|failure| SessionError::Cleanup(failure.to_string()));
     drop(receiver);
-    drop(sender);
     cleanup?;
-    result
+    match send_result {
+        Err(ProviderError::Cancelled) | Ok(()) => result,
+        Err(failure) => Err(error(failure)),
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test(start_paused = true)]
+    async fn startup_waits_five_seconds_and_counts_down_before_work_begins() {
+        let updates = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let recorded = updates.clone();
+        let task = tokio::spawn(async move {
+            startup_delay(&CancellationToken::new(), |n| {
+                recorded.lock().unwrap().push(n)
+            })
+            .await
+        });
+        tokio::task::yield_now().await;
+        assert_eq!(*updates.lock().unwrap(), vec![5]);
+        for _ in 0..4 {
+            tokio::time::advance(Duration::from_secs(1)).await;
+            tokio::task::yield_now().await;
+        }
+        assert!(!task.is_finished());
+        assert_eq!(*updates.lock().unwrap(), vec![5, 4, 3, 2, 1]);
+        tokio::time::advance(Duration::from_secs(1)).await;
+        assert!(task.await.unwrap());
+        assert_eq!(*updates.lock().unwrap(), vec![5, 4, 3, 2, 1, 0]);
+    }
+    #[tokio::test(start_paused = true)]
+    async fn cancelling_startup_prevents_work_from_starting() {
+        let cancel = CancellationToken::new();
+        let worker_cancel = cancel.clone();
+        let task = tokio::spawn(async move { startup_delay(&worker_cancel, |_| {}).await });
+        tokio::task::yield_now().await;
+        cancel.cancel();
+        assert!(!task.await.unwrap());
+    }
     #[tokio::test(start_paused = true)]
     async fn repeated_six_second_packets_cannot_hide_lag_in_transport() {
         let mut playback = PlaybackBuffer::default();
