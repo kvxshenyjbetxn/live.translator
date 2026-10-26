@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-<key>CFBundleIdentifier</key><string>dev.live-translator.audio-spike</string>
-<key>CFBundleName</key><string>Live Translator Audio Spike</string>
-<key>NSAudioCaptureUsageDescription</key><string>Test capturing a selected application's audio locally for live translation. No microphone, network transmission or recording files.</string>
-</dict></plist>

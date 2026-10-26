@@ -4,7 +4,7 @@
 
 macOS-first desktop application on **Rust + Tauri 2 + Svelte 5**. Select an application's audio, translate through the official Gemini Live Translation API, and listen with separate original/translation volume controls.
 
-The main application lives at the project root. `crates/translator-core` is its shared Rust library, `src` is the UI, and `src-tauri` is the desktop shell. `spikes` contains earlier disposable experiments and is not used by the product at runtime.
+The main application lives at the project root. `crates/translator-core` is its shared Rust library, `src` is the UI, and `src-tauri` is the desktop shell. Earlier disposable experiments from `spikes/` were removed; their sources remain available in Git history.
 
 ## Current platform support
 

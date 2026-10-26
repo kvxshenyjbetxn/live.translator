@@ -1,7 +1,6 @@
 [workspace]
 members = ["crates/translator-core", "src-tauri"]
-exclude = ["spikes/macos-process-audio", "spikes/gemini-live-probe", "spikes/live-translate"]
 resolver = "2"
 
 [workspace.package]
-version = "0.6.2"
+version = "0.6.3"
