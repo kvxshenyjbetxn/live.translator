@@ -25,6 +25,14 @@ pub const LANGUAGES: &[Language] = &[
     },
 ];
 
+#[derive(Clone, Copy, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum ShortcutMode {
+    #[default]
+    ActiveApplication,
+    LastCaptured,
+}
+
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Settings {
@@ -34,6 +42,9 @@ pub struct Settings {
     pub original_volume: f32,
     pub translation_volume: f32,
     pub selected_source_id: Option<String>,
+    pub capture_shortcut: Option<String>,
+    pub shortcut_mode: ShortcutMode,
+    pub last_captured_source_id: Option<String>,
 }
 impl Default for Settings {
     fn default() -> Self {
@@ -44,6 +55,9 @@ impl Default for Settings {
             original_volume: 0.15,
             translation_volume: 0.7,
             selected_source_id: None,
+            capture_shortcut: None,
+            shortcut_mode: ShortcutMode::ActiveApplication,
+            last_captured_source_id: None,
         }
     }
 }
@@ -62,6 +76,14 @@ impl Settings {
                 .selected_source_id
                 .as_ref()
                 .is_some_and(|id| id.len() > 4096)
+            || self
+                .last_captured_source_id
+                .as_ref()
+                .is_some_and(|id| id.is_empty() || id.len() > 4096)
+            || self
+                .capture_shortcut
+                .as_ref()
+                .is_some_and(|key| key.is_empty() || key.len() > 128)
         {
             return Err(SettingsError::Validation);
         }
@@ -129,6 +151,24 @@ pub fn save_settings(dir: &Path, settings: &Settings) -> Result<(), SettingsErro
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn legacy_settings_gain_safe_shortcut_defaults() {
+        let value: Settings = serde_json::from_str(r#"{"targetLanguage":"en"}"#).unwrap();
+        let json = serde_json::to_value(&value).unwrap();
+        assert_eq!(json["shortcutMode"], "activeApplication");
+        assert!(json["captureShortcut"].is_null());
+        assert!(json["lastCapturedSourceId"].is_null());
+        let dir = tempfile::tempdir().unwrap();
+        let extended: Settings = serde_json::from_value(serde_json::json!({
+            "captureShortcut":"Control+Shift+KeyT", "shortcutMode":"lastCaptured",
+            "lastCapturedSourceId":"app:/Test.app"
+        }))
+        .unwrap();
+        save_settings(dir.path(), &extended).unwrap();
+        let saved = serde_json::to_value(load_settings(dir.path()).unwrap()).unwrap();
+        assert_eq!(saved["captureShortcut"], "Control+Shift+KeyT");
+        assert_eq!(saved["lastCapturedSourceId"], "app:/Test.app");
+    }
     #[test]
     fn missing_defaults() {
         let dir = tempfile::tempdir().unwrap();

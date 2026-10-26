@@ -25,7 +25,6 @@ pub struct SessionStatus {
     pub session_id: u64,
     pub phase: SessionPhase,
     pub elapsed_seconds: u64,
-    pub startup_countdown_seconds: u8,
     pub input_level: f32,
     pub sent_audio_seconds: f64,
     pub received_audio_seconds: f64,
@@ -42,7 +41,6 @@ impl Default for SessionStatus {
             session_id: 0,
             phase: SessionPhase::Idle,
             elapsed_seconds: 0,
-            startup_countdown_seconds: 0,
             input_level: 0.,
             sent_audio_seconds: 0.,
             received_audio_seconds: 0.,
@@ -264,7 +262,6 @@ impl SessionManager {
                     };
                     state.message = result.err().map(|e| e.to_string());
                     state.input_level = 0.;
-                    state.startup_countdown_seconds = 0;
                     state.playback_backlog_seconds = 0.;
                     state.playback_speed = 1.;
                     state.diagnostics = diagnostics::DiagnosticsSnapshot::default();

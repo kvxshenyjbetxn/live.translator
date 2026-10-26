@@ -79,14 +79,14 @@ test('each real ping adds a packed bar; bars move only on a new measurement', as
   expect(view.container.querySelectorAll('svg:not([data-network-chart]) rect')).toHaveLength(0);
 });
 
-test('start countdown is visible and can be cancelled before connection', async () => {
+test('startup connects immediately and remains cancellable', async () => {
   let stopped = false;
-  const view = render(Translation, { settings: defaults(), status: { ...idle(), phase: 'starting', startupCountdownSeconds: 5 }, sourceName: 'Chrome', languages: [], canStart: true, onStart: () => {}, onStop: () => { stopped = true; }, onChange: () => {} });
-  expect(screen.getByText('Старт за 5 с…')).toHaveAttribute('role', 'status');
-  expect(screen.getByText(/перейдіть у програму/)).toBeVisible();
+  const view = render(Translation, { settings: defaults(), status: { ...idle(), phase: 'starting' }, sourceName: 'Chrome', languages: [], canStart: true, onStart: () => {}, onStop: () => { stopped = true; }, onChange: () => {} });
+  expect(screen.getByText('Підключаємося до Google…')).toHaveAttribute('role', 'status');
+  expect(screen.queryByText(/перейдіть у програму/)).not.toBeInTheDocument();
   await fireEvent.click(screen.getByRole('button', { name: /Зупинити переклад/ }));
   expect(stopped).toBe(true);
-  await view.rerender({ status: { ...idle(), phase: 'starting', startupCountdownSeconds: 0 } });
+  await view.rerender({ status: { ...idle(), phase: 'starting' } });
   expect(screen.getByText('Підключаємося до Google…')).toHaveAttribute('role', 'status');
 });
 

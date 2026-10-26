@@ -31,12 +31,24 @@ Build output: `target/release/bundle/macos/Live Translator.app` (or `target/debu
 
 1. Open Settings / «Налаштування». Paste your Google AI Studio API key. It is masked by default, with explicit reveal and delete actions. Use **«Перевірити з’єднання»** beside the key: settings are flushed first, then a short Live Translation session is opened and closed **without audio**. It checks access to the actual model, not only an HTTP endpoint. Stop translation first; the test cannot run concurrently with capture or another check. It does not establish remaining quota or guarantee a later uninterrupted stream.
 2. Changes save automatically. Wait for the saved indicator; failures stay visible and can be retried. Closing flushes pending edits or offers explicit retry/discard.
-3. Refresh/select the source in the sidebar, choose the target language and click «Почати переклад». A cancellable **5-second countdown** gives you time to switch to the source and start the video. No capture or Google connection begins during the countdown; the active source audio process is resolved afterward. If the source is not listed yet, briefly play audio and refresh first.
+3. Refresh/select the source in the sidebar, choose the target language and click «Почати переклад». Startup begins immediately, without an artificial countdown; Google connection setup still takes time and can be cancelled. If the source is not listed yet, briefly play audio and refresh first.
 4. Grant macOS **System Audio Recording** permission if requested (System Settings → Privacy & Security; wording varies by OS release). No microphone access is required. After changing permissions, macOS may require restarting the app.
 5. Adjust original and translated volume independently while running. Default: original 15%, translation 70%. At original 0%, hear only translation. Original is live; translated speech is delayed, not synchronized with video.
 6. Stop returns the source's native sound and cuts any queued translation tail. Closing the window or Cmd+Q also stops and cleans up first.
 
 Only the selected application's process group is captured. Browsers may have multiple helper processes; selecting Chrome is not selecting a single browser tab. Other programs' sound should remain unaffected. If the source's audio process restarts, refresh and manually start again; the app will not silently attach to a reused PID.
+
+## Трей і гаряча клавіша
+
+- Іконка в системному треї (на macOS — у рядку меню) відкриває стандартне меню: мова перекладу, програма, оновлення джерел, старт/стоп, відкрити вікно, вихід. Вибір програми не запускає передавання аудіо. Під час перекладу мова та джерело заблоковані.
+- У налаштуваннях натисніть **«Обрати гарячу клавішу»**, введіть модифікатор із клавішею та відпустіть її. Початково глобальна комбінація вимкнена. Escape скасовує запис; конфлікт реєстрації показується поруч із фактично активною комбінацією. Зміни зберігаються автоматично.
+- **«Активна програма»** (типовий режим): натискання захоплює програму переднього вікна саме в цей момент, без відкриття Live Translator перед визначенням джерела. **«Остання захоплена»** запускає останнє джерело, чия сесія успішно перейшла в робочий стан; воно запам’ятовується між запусками. Обидва режими використовують поточну мову. Повторне натискання зупиняє поточний переклад, навіть якщо фокус уже на іншій програмі.
+- Захоплюється вся програма, не окрема вкладка чи вікно. Власне вікно Live Translator, невідоме або недоступне джерело не підміняються іншою програмою: показується пояснення.
+- Кольори: **сірий** — вимкнено; **жовтий** — підключення/зупинка, нестабільний зв’язок або ще немає свіжих вимірювань; **зелений** — активне захоплення зі свіжим відгуком без попередження про мережу; **червоний** — помилка сесії. Текст меню пояснює стан, очікування перекладу й локальну чергу окремо від мережі. Тиша сама по собі не означає проблеми зв’язку.
+- Визначення активної програми реалізоване для macOS через NSWorkspace, без автоматизації інтерфейсу. Windows/Linux foreground adapters поки повертають явне повідомлення про відсутність підтримки, без прихованої підміни режиму; аудіозахоплення цих платформ також ще не готове. На Linux доступність трея та глобальних клавіш залежить від середовища, особливо Wayland. За відсутності native-інтеграції основне вікно залишається доступним.
+- Згортання вікна не зупиняє керування через трей/клавішу. **Закриття вікна завершує програму**, як і раніше; приховування в трей замість виходу не додавалося. Вихід із трея проходить звичайне збереження й очищення аудіо.
+
+Ця зміна перевіряється автоматизованими тестами й macOS-збіркою. GUI-взаємодія з меню/глобальною клавішею та runtime Windows/Linux потребують окремої ручної перевірки; не вважайте їх перевіреними лише за результатами тестів.
 
 ## Settings and privacy
 
@@ -95,6 +107,6 @@ Tests use temporary settings files, local WebSockets and fake session runners; n
 cargo run -p translator-core --example check_connection -- "$HOME/Library/Application Support/dev.live-translator.desktop"
 ```
 
-It reads the key only from that explicitly supplied settings directory, prints a safe result, opens/closes a real Google Live session, and sends no audio. Manual checklist: [`docs/testing/macos-smoke.md`](docs/testing/macos-smoke.md).
+It reads the key only from that explicitly supplied settings directory, prints a safe result, opens/closes a real Google Live session, and sends no audio. Manual checklist: local `docs/testing/macos-smoke.md` (development notes are intentionally not tracked or published in Git).
 
-Approved design and implementation plan are in `docs/superpowers/`. Repository: https://github.com/kvxshenyjbetxn/live.translator. Release versions follow SemVer; Rust workspace, frontend, Tauri metadata and bundled app must agree. Earlier testing reports describe their historical build versions.
+Local design, implementation plans and verification notes live in the ignored `docs/` directory; they are not part of repository history or release source archives. Repository: https://github.com/kvxshenyjbetxn/live.translator. Release versions follow SemVer; Rust workspace, frontend, Tauri metadata and bundled app must agree. Earlier testing reports describe their historical build versions.

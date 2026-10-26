@@ -1,5 +1,5 @@
 use crate::ConfigStore;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 use tauri_plugin_opener::OpenerExt;
 use translator_core::{
     capture,
@@ -17,12 +17,43 @@ pub fn load_settings(store: State<'_, ConfigStore>) -> Result<Settings, String> 
     settings::load_settings(&store.directory).map_err(|e| e.to_string())
 }
 #[tauri::command]
-pub fn save_settings(settings: Settings, store: State<'_, ConfigStore>) -> Result<(), String> {
+pub fn save_settings(
+    app: AppHandle,
+    mut settings: Settings,
+    store: State<'_, ConfigStore>,
+) -> Result<crate::desktop::shortcut::SaveResult, String> {
     let _guard = store
         .lock
         .lock()
         .map_err(|_| "Налаштування тимчасово недоступні.")?;
-    settings::save_settings(&store.directory, &settings).map_err(|e| e.to_string())
+    settings.validate().map_err(|e| e.to_string())?;
+    // Check the existing file before changing any OS shortcut registration.
+    let previous = settings::load_settings(&store.directory).map_err(|e| e.to_string())?;
+    let registration = crate::desktop::shortcut::configure(&app, &settings, || {
+        settings::save_settings(&store.directory, &settings).map_err(|e| e.to_string())
+    });
+    let shortcut_error = registration.err();
+    if shortcut_error.is_some() {
+        let control = app.state::<crate::desktop::shortcut::Control>();
+        let active = control
+            .status
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .active
+            .clone();
+        settings.capture_shortcut = crate::desktop::shortcut::fallback(
+            previous.capture_shortcut.as_deref(),
+            settings.capture_shortcut.as_deref(),
+            active.as_deref(),
+        );
+        // Registration failure is not a settings-disk failure. Save all unrelated
+        // edits while returning the effective binding for renderer reconciliation.
+        settings::save_settings(&store.directory, &settings).map_err(|e| e.to_string())?;
+    }
+    Ok(crate::desktop::shortcut::SaveResult {
+        capture_shortcut: settings.capture_shortcut,
+        shortcut_error,
+    })
 }
 #[tauri::command]
 pub fn config_directory(store: State<'_, ConfigStore>) -> String {
@@ -89,8 +120,10 @@ pub async fn check_connection(
         .map_err(|error| error.to_string())
 }
 #[tauri::command]
-pub fn session_status(session: State<'_, SessionManager>) -> SessionStatus {
-    session.status()
+pub fn session_status(app: AppHandle, session: State<'_, SessionManager>) -> SessionStatus {
+    let status = session.status();
+    crate::desktop::tray::update(&app, &status);
+    status
 }
 #[tauri::command]
 pub fn set_volumes(

@@ -1,4 +1,5 @@
 mod commands;
+mod desktop;
 mod lifecycle;
 use std::{path::PathBuf, sync::Mutex};
 use tauri::Manager;
@@ -11,6 +12,8 @@ struct ConfigStore {
 pub fn run() {
     let app = tauri::Builder::default()
         .manage(SessionManager::default())
+        .manage(desktop::shortcut::Control::default())
+        .manage(desktop::tray::Control::default())
         .manage(lifecycle::CloseState::default())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
@@ -18,6 +21,20 @@ pub fn run() {
                 directory: app.path().app_config_dir()?,
                 lock: Mutex::new(()),
             });
+            desktop::shortcut::initialize(app.handle());
+            if desktop::tray::initialize(app.handle()).is_err() {
+                app.state::<desktop::shortcut::Control>()
+                    .status
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .integration_error = Some(
+                    "Трей недоступний у цьому середовищі; використовуйте основне вікно.".into(),
+                );
+            }
+            let store = app.state::<ConfigStore>();
+            if let Ok(settings) = translator_core::settings::load_settings(&store.directory) {
+                let _ = desktop::shortcut::configure(app.handle(), &settings, || Ok(()));
+            }
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -30,6 +47,10 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            desktop::tray::sync_desktop,
+            desktop::shortcut::shortcut_status,
+            desktop::shortcut::suspend_shortcut,
+            desktop::show_main_window,
             commands::load_settings,
             commands::save_settings,
             commands::config_directory,

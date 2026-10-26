@@ -39,22 +39,6 @@ async fn next_io(
         _ = tick.tick() => Wake::Tick,
     }
 }
-async fn startup_delay(cancel: &CancellationToken, mut update: impl FnMut(u8)) -> bool {
-    for remaining in (1..=5).rev() {
-        if cancel.is_cancelled() {
-            update(0);
-            return false;
-        }
-        update(remaining);
-        tokio::select! {
-            biased;
-            _ = cancel.cancelled() => { update(0); return false; },
-            _ = tokio::time::sleep(Duration::from_secs(1)) => {},
-        }
-    }
-    update(0);
-    !cancel.is_cancelled()
-}
 fn error(error: impl std::fmt::Display) -> SessionError {
     SessionError::Operation(error.to_string())
 }
@@ -65,14 +49,10 @@ async fn run(
     reporter: Reporter,
     gains: Arc<LiveGains>,
 ) -> Result<(), SessionError> {
-    if !startup_delay(&cancel, |remaining| {
-        reporter.update(|s| s.startup_countdown_seconds = remaining)
-    })
-    .await
-    {
+    if cancel.is_cancelled() {
         return Ok(());
     }
-    // Resolve the active audio process after the user has had time to start the video.
+    // Resolve immediately; there is no artificial startup countdown.
     let source = resolve_source(&source_id).map_err(error)?;
     if cancel.is_cancelled() {
         return Ok(());
@@ -223,35 +203,42 @@ async fn run(
 mod tests {
     use super::*;
     #[tokio::test(start_paused = true)]
-    async fn startup_waits_five_seconds_and_counts_down_before_work_begins() {
-        let updates = Arc::new(std::sync::Mutex::new(Vec::new()));
-        let recorded = updates.clone();
-        let task = tokio::spawn(async move {
-            startup_delay(&CancellationToken::new(), |n| {
-                recorded.lock().unwrap().push(n)
-            })
-            .await
-        });
-        tokio::task::yield_now().await;
-        assert_eq!(*updates.lock().unwrap(), vec![5]);
-        for _ in 0..4 {
-            tokio::time::advance(Duration::from_secs(1)).await;
-            tokio::task::yield_now().await;
-        }
-        assert!(!task.is_finished());
-        assert_eq!(*updates.lock().unwrap(), vec![5, 4, 3, 2, 1]);
-        tokio::time::advance(Duration::from_secs(1)).await;
-        assert!(task.await.unwrap());
-        assert_eq!(*updates.lock().unwrap(), vec![5, 4, 3, 2, 1, 0]);
+    async fn source_resolution_has_no_artificial_delay() {
+        let manager = SessionManager::default();
+        let reporter = Reporter {
+            status: manager.status.clone(),
+            id: 0,
+        };
+        let began = tokio::time::Instant::now();
+        assert!(run(
+            Settings::default(),
+            "missing-source".into(),
+            CancellationToken::new(),
+            reporter,
+            manager.gains.clone()
+        )
+        .await
+        .is_err());
+        assert!(began.elapsed() < Duration::from_secs(1));
     }
     #[tokio::test(start_paused = true)]
-    async fn cancelling_startup_prevents_work_from_starting() {
+    async fn cancelling_startup_prevents_source_resolution() {
+        let manager = SessionManager::default();
+        let reporter = Reporter {
+            status: manager.status.clone(),
+            id: 0,
+        };
         let cancel = CancellationToken::new();
-        let worker_cancel = cancel.clone();
-        let task = tokio::spawn(async move { startup_delay(&worker_cancel, |_| {}).await });
-        tokio::task::yield_now().await;
         cancel.cancel();
-        assert!(!task.await.unwrap());
+        assert!(run(
+            Settings::default(),
+            "missing-source".into(),
+            cancel,
+            reporter,
+            manager.gains.clone()
+        )
+        .await
+        .is_ok());
     }
     #[tokio::test(start_paused = true)]
     async fn repeated_six_second_packets_cannot_hide_lag_in_transport() {

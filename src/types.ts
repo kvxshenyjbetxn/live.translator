@@ -1,6 +1,7 @@
 export interface Settings {
   schemaVersion: number; apiKey: string; targetLanguage: string;
   originalVolume: number; translationVolume: number; selectedSourceId: string | null;
+  captureShortcut: string | null; shortcutMode: 'activeApplication' | 'lastCaptured'; lastCapturedSourceId: string | null;
 }
 export interface AudioSource { id: string; name: string; active: boolean; detail: string | null }
 export interface Language { code: string; name: string }
@@ -15,10 +16,10 @@ export interface DiagnosticsSnapshot {
 }
 export const emptyDiagnostics = (): DiagnosticsSnapshot => ({ elapsedSeconds: 0, samples: [], networkSamples: [], networkRttMs: null, sendDurationMs: null, sendingQueueSeconds: 0, playbackQueueSeconds: 0, issues: [] });
 export interface SessionStatus {
-  sessionId: number; phase: Phase; elapsedSeconds: number; startupCountdownSeconds: number; inputLevel: number;
+  sessionId: number; phase: Phase; elapsedSeconds: number; inputLevel: number;
   sentAudioSeconds: number; receivedAudioSeconds: number; playbackBacklogSeconds: number; playbackSpeed: number; message: string | null;
   diagnostics: DiagnosticsSnapshot;
 }
 export interface ConnectionReport { model: string; elapsedMs: number }
-export const defaults = (): Settings => ({ schemaVersion: 1, apiKey: '', targetLanguage: 'uk', originalVolume: .15, translationVolume: .7, selectedSourceId: null });
-export const idle = (): SessionStatus => ({ sessionId: 0, phase: 'idle', elapsedSeconds: 0, startupCountdownSeconds: 0, inputLevel: 0, sentAudioSeconds: 0, receivedAudioSeconds: 0, playbackBacklogSeconds: 0, playbackSpeed: 1, message: null, diagnostics: emptyDiagnostics() });
+export const defaults = (): Settings => ({ schemaVersion: 1, apiKey: '', targetLanguage: 'uk', originalVolume: .15, translationVolume: .7, selectedSourceId: null, captureShortcut: null, shortcutMode: 'activeApplication', lastCapturedSourceId: null });
+export const idle = (): SessionStatus => ({ sessionId: 0, phase: 'idle', elapsedSeconds: 0, inputLevel: 0, sentAudioSeconds: 0, receivedAudioSeconds: 0, playbackBacklogSeconds: 0, playbackSpeed: 1, message: null, diagnostics: emptyDiagnostics() });

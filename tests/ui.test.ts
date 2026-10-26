@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/svelte';
+import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { expect, test } from 'vitest';
 import SettingsView from '../src/components/Settings.svelte';
 import Translation from '../src/components/Translation.svelte';
@@ -30,6 +30,50 @@ test('connection test is disabled without a key or while translating', async () 
   expect(screen.getByRole('button', { name: 'Перевірити з’єднання' })).toBeDisabled();
   await view.rerender({ settings: { ...defaults(), apiKey: 'test-only' }, connectionBlocked: true });
   expect(screen.getByRole('button', { name: 'Перевірити з’єднання' })).toBeDisabled();
+});
+
+test('shortcut settings default to active application and allow changing mode and clearing binding', async () => {
+  let changed: Partial<Settings> = {};
+  render(SettingsView, { settings: { ...defaults(), captureShortcut: 'Control+Shift+KeyT' }, directory: '/test', state: 'saved', onChange: patch => { changed = patch; }, onRetry: () => {}, onOpen: () => {} });
+  expect(screen.getByLabelText('Дія гарячої клавіші')).toHaveValue('activeApplication');
+  await fireEvent.change(screen.getByLabelText('Дія гарячої клавіші'), { target: { value: 'lastCaptured' } });
+  expect(changed).toEqual({ shortcutMode: 'lastCaptured' });
+  await fireEvent.click(screen.getByRole('button', { name: 'Вимкнути гарячу клавішу' }));
+  expect(changed).toEqual({ captureShortcut: null });
+});
+
+test('recording waits for key release before changing the shortcut', async () => {
+  let changed: Partial<Settings> = {};
+  render(SettingsView, { settings: defaults(), directory: '/test', state: 'saved', onChange: patch => { changed = patch; }, onRetry: () => {}, onOpen: () => {} });
+  await fireEvent.click(screen.getByRole('button', { name: 'Обрати гарячу клавішу' }));
+  const recorder = await screen.findByRole('button', { name: 'Натисніть комбінацію…' });
+  await fireEvent.keyDown(recorder, { code: 'KeyT', ctrlKey: true, shiftKey: true });
+  expect(changed).toEqual({});
+  await fireEvent.keyUp(recorder, { code: 'KeyT', ctrlKey: true, shiftKey: true });
+  expect(changed).toEqual({ captureShortcut: 'Control+Shift+KeyT' });
+});
+
+test('recorder focuses an enabled control after native setup and records window-level keys', async () => {
+  let changed: Partial<Settings> = {};
+  render(SettingsView, { settings: defaults(), directory: '/test', state: 'saved', onChange: patch => { changed = patch; }, onRetry: () => {}, onOpen: () => {} });
+  await fireEvent.click(screen.getByRole('button', { name: 'Обрати гарячу клавішу' }));
+  const recorder = await screen.findByRole('button', { name: 'Натисніть комбінацію…' });
+  await waitFor(() => expect(recorder).toHaveFocus());
+  recorder.blur(); // macOS/WebKit need not focus a button on mouse click.
+  await fireEvent.keyDown(window, { code: 'KeyT', ctrlKey: true, shiftKey: true });
+  expect(changed).toEqual({});
+  await fireEvent.keyUp(window, { code: 'KeyT', ctrlKey: true, shiftKey: true });
+  expect(changed).toEqual({ captureShortcut: 'Control+Shift+KeyT' });
+});
+
+test('Escape cancels recording even when focus is outside the recorder', async () => {
+  let changed: Partial<Settings> = {};
+  render(SettingsView, { settings: defaults(), directory: '/test', state: 'saved', onChange: patch => { changed = patch; }, onRetry: () => {}, onOpen: () => {} });
+  await fireEvent.click(screen.getByRole('button', { name: 'Обрати гарячу клавішу' }));
+  await screen.findByRole('button', { name: 'Натисніть комбінацію…' });
+  await fireEvent.keyDown(window, { code: 'Escape' });
+  expect(await screen.findByRole('button', { name: 'Обрати гарячу клавішу' })).toBeEnabled();
+  expect(changed).toEqual({});
 });
 
 test('running session locks language but permits independent live volume change and stop', async () => {
