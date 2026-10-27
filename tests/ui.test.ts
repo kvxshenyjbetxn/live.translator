@@ -91,10 +91,42 @@ test('running session locks language but permits independent live volume change 
   await fireEvent.input(gain, { target: { value: '25' } }); expect(changed).toEqual({ originalVolume: .25 });
   await fireEvent.click(screen.getByRole('button', { name: /Зупинити переклад/ })); expect(stopped).toBe(true);
 });
+test('waiting shows an honest cancel action instead of a start action', async () => {
+  let stopped = 0;
+  render(Translation, { waiting: true, settings: defaults(), status: idle(), sourceName: 'Closed', languages: [], canStart: true, onStart: () => {}, onStop: () => { stopped++; }, onChange: () => {} });
+  // `<output>` elements also expose an implicit `status` role, so target the session label text.
+  expect(screen.getByText('Очікуємо на програму')).toBeVisible();
+  expect(screen.getByText(/Програма не відкривається сама/)).toBeVisible();
+  expect(screen.getByText(/Аудіо ще не передається Google/)).toBeVisible();
+  expect(screen.queryByText(/Аудіо вибраної програми передається Google/)).toBeNull();
+  expect(screen.queryByRole('button', { name: /Почати переклад/ })).toBeNull();
+  await fireEvent.click(screen.getByRole('button', { name: /Скасувати очікування/ }));
+  expect(stopped).toBe(1);
+});
 test('start is disabled without credentials/source; source selection emits a stable id', async () => {
   render(Translation, { settings: defaults(), status: idle(), sourceName: null, languages: [], canStart: false, onStart: () => {}, onStop: () => {}, onChange: () => {} });
   expect(screen.getByRole('button', { name: /Почати переклад/ })).toBeDisabled();
   let selected = '';
-  render(Sources, { sources: [{ id: 'app:/Chrome.app', name: 'Chrome', active: true, detail: null }], selected: null, disabled: false, onSelect: id => { selected = id; }, onRefresh: () => {} });
+  const visible = [{ id: 'app:/Chrome.app', name: 'Chrome', active: true, detail: null, favorite: false, available: true }];
+  render(Sources, { visible, hidden: [], selectedId: null, disabled: false, onSelect: id => { selected = id; }, onRefresh: () => {}, onToggleFavorite: () => {}, onHide: () => {}, onRestore: () => {} });
   await fireEvent.click(screen.getByRole('button', { name: /Chrome/ })); expect(selected).toBe('app:/Chrome.app');
+});
+test('one list with star, hide and a counted hidden disclosure', async () => {
+  const visible = [
+    { id: 'app:/Closed.app', name: 'Closed', active: false, detail: null, favorite: true, available: false },
+    { id: 'app:/Chrome.app', name: 'Chrome', active: true, detail: null, favorite: false, available: true },
+  ];
+  const hidden = [{ id: 'app:/Gone.app', name: 'Gone', active: false, detail: null, favorite: false, available: false }];
+  const actions: string[] = [];
+  render(Sources, { visible, hidden, selectedId: null, disabled: true, onSelect: () => {}, onRefresh: () => {}, onToggleFavorite: v => actions.push(`fav:${v.id}`), onHide: v => actions.push(`hide:${v.id}`), onRestore: v => actions.push(`restore:${v.id}`) });
+  expect(screen.getByText('Програма недоступна')).toBeVisible();
+  expect(screen.getAllByRole('button', { name: /Closed|Chrome/ })[0]).toHaveAccessibleName(/Closed/);
+  await fireEvent.click(screen.getByRole('button', { name: 'Прибрати з обраних' }));
+  await fireEvent.click(screen.getAllByRole('button', { name: 'Приховати' })[1]);
+  expect(actions).toEqual(['fav:app:/Closed.app', 'hide:app:/Chrome.app']);
+  expect(screen.getByRole('button', { name: 'Додати до обраних' })).toBeEnabled();
+  expect(screen.queryByText('Gone')).toBeNull();
+  await fireEvent.click(screen.getByRole('button', { name: 'Приховані (1)' }));
+  await fireEvent.click(screen.getByRole('button', { name: 'Повернути' }));
+  expect(actions.at(-1)).toBe('restore:app:/Gone.app');
 });

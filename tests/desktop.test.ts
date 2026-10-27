@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { decideDesktop, MenuSync, type DesktopContext } from '../src/lib/desktop';
 import { defaults } from '../src/types';
-const context = (patch: Partial<DesktopContext> = {}): DesktopContext => ({ loaded: true, closing: false, checking: false, recording: false, starting: false, phase: 'idle', settings: defaults(), ...patch });
+const context = (patch: Partial<DesktopContext> = {}): DesktopContext => ({ loaded: true, closing: false, checking: false, recording: false, starting: false, waiting: false, phase: 'idle', settings: defaults(), ...patch });
 test('active shortcut uses its keypress snapshot, last mode uses remembered stable identity', () => {
   expect(decideDesktop({ kind: 'shortcut', value: 'app:/Active.app' }, context())).toEqual({ kind: 'start', sourceId: 'app:/Active.app' });
   expect(decideDesktop({ kind: 'shortcut', value: 'app:/Active.app' }, context({ settings: { ...defaults(), shortcutMode: 'lastCaptured', lastCapturedSourceId: 'app:/Last.app' } }))).toEqual({ kind: 'start', sourceId: 'app:/Last.app' });
@@ -22,6 +22,13 @@ test('stopping, startup, shutdown, connection check and recorder ignore native a
   for (const patch of [{ phase: 'stopping' as const }, { loaded: false }, { closing: true }, { checking: true }, { recording: true }]) {
     expect(decideDesktop({ kind: 'shortcut', value: 'app:/Active.app' }, context(patch))).toEqual({ kind: 'ignore' });
   }
+});
+test('waiting is cancelled by toggle and shortcut and ignores refresh', () => {
+  const c = context({ waiting: true });
+  expect(decideDesktop({ kind: 'toggle' }, c)).toEqual({ kind: 'stop' });
+  expect(decideDesktop({ kind: 'shortcut', value: 'app:/A.app' }, c)).toEqual({ kind: 'stop' });
+  expect(decideDesktop({ kind: 'refresh' }, c)).toEqual({ kind: 'ignore' });
+  expect(decideDesktop({ kind: 'source', value: 'app:/A.app' }, c)).toEqual({ kind: 'ignore' });
 });
 test('source and language menu changes are locked during capture', () => {
   expect(decideDesktop({ kind: 'source', value: 'app:/A.app' }, context({ phase: 'running' }))).toEqual({ kind: 'ignore' });

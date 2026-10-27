@@ -29,6 +29,27 @@ fn localized(text: &str, language: &str) -> String {
 }
 
 #[cfg(test)]
+mod label_tests {
+    use super::*;
+    #[test]
+    fn waiting_label_precedes_running_and_idle_labels() {
+        let mut model = Model {
+            waiting: true,
+            can_start: false,
+            can_stop: true,
+            ..Model::default()
+        };
+        assert_eq!(toggle_label(&model), "Скасувати очікування");
+        model.waiting = false;
+        assert_eq!(toggle_label(&model), "Зупинити переклад");
+        model.can_stop = false;
+        assert_eq!(toggle_label(&model), "Почати переклад");
+        let legacy: Model = serde_json::from_str(r#"{"revision":1,"sources":[],"selectedSourceId":null,"targetLanguage":"uk","canSelect":true,"canStart":true,"canStop":false}"#).unwrap();
+        assert!(!legacy.waiting);
+    }
+}
+
+#[cfg(test)]
 mod localization_tests {
     use super::*;
     #[test]
@@ -126,6 +147,20 @@ pub struct Model {
     pub can_select: bool,
     pub can_start: bool,
     pub can_stop: bool,
+    /// An explicit start is waiting for a favorite application to appear. Kept last so older
+    /// models stay readable; it is renderer state only and is never persisted.
+    #[serde(default)]
+    pub waiting: bool,
+}
+/// Tray toggle label: an explicit wait must be cancellable before it is a running stop.
+pub fn toggle_label(model: &Model) -> &'static str {
+    if model.waiting {
+        "Скасувати очікування"
+    } else if model.can_stop {
+        "Зупинити переклад"
+    } else {
+        "Почати переклад"
+    }
 }
 #[derive(Clone, Deserialize, PartialEq)]
 pub struct Source {
@@ -189,11 +224,7 @@ fn menu(
     menu.append(&MenuItem::with_id(
         app,
         "toggle",
-        tr(if model.can_stop {
-            "Зупинити переклад"
-        } else {
-            "Почати переклад"
-        }),
+        tr(toggle_label(model)),
         model.can_start || model.can_stop,
         None::<&str>,
     )?)?;

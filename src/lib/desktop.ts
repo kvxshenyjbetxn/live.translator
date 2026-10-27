@@ -2,12 +2,12 @@ import type { Phase, Settings } from '../types';
 export interface DesktopAction { kind: string; value?: string | null; error?: string | null }
 export interface SaveResult { captureShortcut: string | null; shortcutError: string | null }
 export interface ShortcutStatus { active: string | null; error: string | null; integrationError: string | null }
-export interface MenuModel { interfaceLanguage: Settings['interfaceLanguage']; revision: number; sources: { id: string; name: string }[]; selectedSourceId: string | null; targetLanguage: string; canSelect: boolean; canStart: boolean; canStop: boolean }
-export interface DesktopContext { loaded: boolean; closing: boolean; checking: boolean; recording: boolean; starting: boolean; phase: Phase; settings: Settings }
+export interface MenuModel { interfaceLanguage: Settings['interfaceLanguage']; revision: number; sources: { id: string; name: string }[]; selectedSourceId: string | null; targetLanguage: string; canSelect: boolean; canStart: boolean; canStop: boolean; waiting: boolean }
+export interface DesktopContext { loaded: boolean; closing: boolean; checking: boolean; recording: boolean; starting: boolean; waiting: boolean; phase: Phase; settings: Settings }
 type Decision = { kind: 'ignore' | 'stop' | 'refresh' } | { kind: 'start'; sourceId: string } | { kind: 'error'; message: string } | { kind: 'language' | 'source'; value: string };
 export function decideDesktop(action: DesktopAction, c: DesktopContext): Decision {
   if (!c.loaded || c.closing || c.checking || c.recording || c.phase === 'stopping') return { kind: 'ignore' };
-  const busy = c.starting || c.phase === 'starting' || c.phase === 'running';
+  const busy = c.waiting || c.starting || c.phase === 'starting' || c.phase === 'running';
   if (action.kind === 'stop') return { kind: 'stop' };
   if (action.kind === 'toggle' || action.kind === 'shortcut') {
     if (busy) return { kind: 'stop' };

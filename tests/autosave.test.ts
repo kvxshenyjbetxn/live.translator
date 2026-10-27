@@ -36,3 +36,25 @@ test('failed save stays unsaved and retry writes the current value, not an older
   fail = false; store.update({ ...defaults(), translationVolume: .9 }); await store.retry();
   expect(saved).toEqual([.9]); expect(states.at(-1)).toBe('saved');
 });
+async function failure(store: AutosaveStore): Promise<string> {
+  try { await store.flush(); } catch (reason) { return reason instanceof Error ? reason.message : String(reason); }
+  return 'saved';
+}
+test('actionable validation and size refusals survive a failed recovery save', async () => {
+  const refusals = [
+    'Некоректні налаштування. Перевірте мову, гучність і список програм.',
+    'Список програм завеликий для збереження. Приберіть частину обраних або прихованих програм.',
+  ];
+  for (const refusal of refusals) {
+    const store = new AutosaveStore(async () => { throw refusal; });
+    store.init(defaults()); store.update({ ...defaults(), originalVolume: .2 });
+    expect(await failure(store)).toBe(refusal);
+  }
+});
+test('arbitrary backend save text is masked so keys and file content never surface', async () => {
+  const store = new AutosaveStore(async () => { throw `write failed near {"apiKey":"AIza-test-only"} in /Users/test/settings.json`; });
+  store.init(defaults()); store.update({ ...defaults(), originalVolume: .4 });
+  const message = await failure(store);
+  expect(message).toBe('Не вдалося зберегти налаштування. Перевірте доступ до папки й повторіть.');
+  expect(message).not.toMatch(/AIza|apiKey|settings\.json/);
+});

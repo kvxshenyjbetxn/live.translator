@@ -1,6 +1,20 @@
 import type { Settings } from '../types';
 export type SaveState = 'loading' | 'saved' | 'saving' | 'unsaved' | 'error';
 
+const SAVE_FAILED = 'Не вдалося зберегти налаштування. Перевірте доступ до папки й повторіть.';
+/**
+ * Backend save failures are arbitrary text that can echo a path or the file it tried to write, so
+ * only these fixed, user-actionable refusals are shown; everything else is masked.
+ */
+export const ACTIONABLE_REFUSALS = new Set([
+  'Некоректні налаштування. Перевірте мову, гучність і список програм.',
+  'Список програм завеликий для збереження. Приберіть частину обраних або прихованих програм.',
+]);
+function saveFailure(reason: unknown): Error {
+  const text = typeof reason === 'string' ? reason : reason instanceof Error ? reason.message : '';
+  return new Error(ACTIONABLE_REFUSALS.has(text) ? text : SAVE_FAILED);
+}
+
 /** Serial writes; immutable snapshots prevent old completions from replacing new edits. */
 export class AutosaveStore {
   private desired: string | null = null;
@@ -36,7 +50,7 @@ export class AutosaveStore {
       const snapshot = this.desired!;
       this.changed('saving');
       try { await this.write(JSON.parse(snapshot) as Settings); }
-      catch { this.changed('error'); throw new Error('Не вдалося зберегти налаштування. Перевірте доступ до папки й повторіть.'); }
+      catch (reason) { this.changed('error'); throw saveFailure(reason); }
       this.saved = snapshot;
     }
     this.changed('saved');

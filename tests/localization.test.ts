@@ -6,6 +6,7 @@ import SettingsView from '../src/components/Settings.svelte';
 import Translation from '../src/components/Translation.svelte';
 import { defaults, idle } from '../src/types';
 import { formatMeasurement } from '../src/lib/diagnostics';
+import { ACTIONABLE_REFUSALS } from '../src/lib/autosave';
 
 afterEach(() => locale.set('uk'));
 test('switches existing accessible UI and status text without changing audio language', async () => {
@@ -30,6 +31,12 @@ test('translates running diagnostics, units and structured provider errors but p
   expect(translate('Google тимчасово не може обробити запит (код 503). Це не обов\'язково ліміт; повторіть пізніше.', 'en')).toContain('(code 503)');
   expect(translate("Збій з'єднання з Google: підключення — час очікування вичерпано. Спробуйте запустити знову.", 'en')).toBe('Google connection failed: connection — timed out. Try starting again.');
   expect(translate('WebSocket error: opaque external response', 'en')).toBe('WebSocket error: opaque external response');
+});
+test('autosave refusal allowlist stays present in the shared catalog', () => {
+  // Masked-vs-shown save errors depend on these exact Ukrainian strings being translated keys.
+  const catalog: Record<string, string> = messages;
+  expect(ACTIONABLE_REFUSALS.size).toBe(2);
+  for (const refusal of ACTIONABLE_REFUSALS) expect(catalog[refusal], refusal).toBeTruthy();
 });
 test('shared catalog covers all native Ukrainian user-facing string literals', () => {
   // Pin completeness for native messages, not arbitrary external error payloads.
