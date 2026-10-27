@@ -26,7 +26,7 @@ env -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID \
   npm run tauri -- build --bundles app --target "$target"
 app="$root/target/$target/release/bundle/macos/Live Translator.app"
 /usr/bin/codesign --verify --deep --strict --verbose=2 "$app"
-/usr/bin/codesign --display --verbose=2 "$app" 2>&1 | grep -q '^Signature=adhoc$'
+bash "$root/scripts/verify-macos-signature.sh" "$app"
 
 out="$root/target/release/distribute"
 mkdir -p "$out"
