@@ -22,7 +22,8 @@ export interface SessionStatus {
   sessionId: number; phase: Phase; elapsedSeconds: number; inputLevel: number;
   sentAudioSeconds: number; receivedAudioSeconds: number; playbackBacklogSeconds: number; playbackSpeed: number; message: string | null;
   diagnostics: DiagnosticsSnapshot;
+  transcripts: { original: string; translated: string };
 }
 export interface ConnectionReport { model: string; elapsedMs: number }
 export const defaults = (): Settings => ({ schemaVersion: 1, apiKey: '', targetLanguage: 'uk', theme: 'default', accentColor: '#c5e89d', interfaceLanguage: 'uk', originalVolume: .15, translationVolume: .7, selectedSourceId: null, captureShortcut: null, shortcutMode: 'activeApplication', lastCapturedSourceId: null, favoriteSources: [], hiddenSources: [] });
-export const idle = (): SessionStatus => ({ sessionId: 0, phase: 'idle', elapsedSeconds: 0, inputLevel: 0, sentAudioSeconds: 0, receivedAudioSeconds: 0, playbackBacklogSeconds: 0, playbackSpeed: 1, message: null, diagnostics: emptyDiagnostics() });
+export const idle = (): SessionStatus => ({ sessionId: 0, phase: 'idle', elapsedSeconds: 0, inputLevel: 0, sentAudioSeconds: 0, receivedAudioSeconds: 0, playbackBacklogSeconds: 0, playbackSpeed: 1, message: null, diagnostics: emptyDiagnostics(), transcripts: { original: '', translated: '' } });

@@ -13,6 +13,7 @@
   import { decideDesktop, MenuSync, type DesktopAction, type MenuModel, type ShortcutStatus } from './lib/desktop';
   import Sources from './components/Sources.svelte';
   import Translation from './components/Translation.svelte';
+  import Transcripts from './components/Transcripts.svelte';
   import SettingsView from './components/Settings.svelte';
   let settings = $state(defaults());
   $effect(() => { applyAppearance(settings); });
@@ -20,7 +21,7 @@
   let status = $state(idle());
   let sources = $state<AudioSource[]>([]);
   let languages = $state<Language[]>([{ code: 'uk', name: 'Українська' }]);
-  let directory = $state(''); let tab = $state<'translation' | 'settings'>('translation');
+  let directory = $state(''); let tab = $state<'translation' | 'texts' | 'settings'>('translation');
   let loaded = $state(false); let loading = $state(false); let closing = $state(false);
   let closeFailed = $state(false); let error = $state(''); let sourceError = $state('');
   let saveState = $state<SaveState>('loading');
@@ -270,6 +271,7 @@
 <div class="shell" inert={closing}>
   <aside class="sidebar"><div class="brand"><span class="brand-mark">≋</span><div>Live Translator<small>{$t('ТВІЙ ЖИВИЙ ПЕРЕКЛАД')}</small></div></div>
     <button class="navigation-item" class:chosen={tab === 'translation'} onclick={() => tab = 'translation'}>◉ &nbsp; {$t('Переклад')}</button>
+    <button class="navigation-item" class:chosen={tab === 'texts'} onclick={() => tab = 'texts'}>☰ &nbsp; {$t('Тексти')}</button>
     <Sources visible={catalog.visible} hidden={catalog.hidden} selectedId={settings.selectedSourceId} disabled={!loaded || busy || starting || checking || closing} controlsDisabled={!loaded || closing || checking} onSelect={id => { change({ selectedSourceId: id }); tab = 'translation'; }} onRefresh={() => { void refreshSources(); }} onToggleFavorite={favorite} onHide={hide} onRestore={restore}/>
     <div class="sidebar-bottom"><p>{$t('Захоплюється лише вибрана програма. Інші звуки не змінюються.')}</p><button class="navigation-item" class:chosen={tab === 'settings'} onclick={() => tab = 'settings'}>⚙ &nbsp; {$t('Налаштування')}</button><span class="version">v{version} · macOS-first</span></div>
   </aside>
@@ -279,6 +281,7 @@
     {#if sourceError && tab === 'translation'}<div class="notice" role="alert">{$t(sourceError)}</div>{/if}
     {#if desktop && !loaded}<div class="notice">{$t(loading ? 'Завантажуємо налаштування…' : 'Налаштування не завантажено. Файл не буде перезаписано.')}{#if !loading}<button class="secondary" onclick={() => { void load(); }}>{$t('Повторити завантаження')}</button>{/if}</div>{/if}
     {#if tab === 'settings'}<SettingsView {settings} {directory} state={saveState} disabled={!loaded || closing} {checking} connectionBlocked={busy || starting || !!waiting} {connectionMessage} {connectionError} {shortcutStatus} onRecording={recordShortcut} onCheck={() => { void checkConnection(); }} onChange={change} onRetry={() => { void retrySave(); }} onOpen={() => { void openDirectory(); }}/>
+    {:else if tab === 'texts'}<Transcripts transcripts={status.transcripts} phase={displayStatus.phase} message={displayStatus.message}/>
     {:else}<Translation {settings} status={displayStatus} sourceName={selectedName} {languages} disabled={!loaded || closing || checking || recording} canStart={canStartSource} waiting={!!waiting} onStart={() => { void start(); }} onStop={() => { void stop(); }} onChange={change}/>{/if}
   </main><footer><span class:error-text={saveState === 'error'}>{$t(!desktop ? 'Лише попередній перегляд' : !loaded ? 'Налаштування недоступні' : saveState === 'error' ? '● Не збережено · відкрийте налаштування' : saveState === 'saving' || saveState === 'unsaved' ? '◌ Зберігаємо…' : '● Усі зміни збережено')}</span><span>{$t('Аудіозапис не зберігається')}</span></footer></div>
 </div>

@@ -424,3 +424,14 @@ test('preference controls stay usable during capture and lock while a check is p
   expect(screen.getByRole('button', { name: 'Прибрати з обраних' })).toBeDisabled();
   expect(screen.getByRole('button', { name: 'Приховати' })).toBeDisabled();
 });
+
+test('texts tab shows a localized asynchronous session error and retained text', async () => {
+  native.api.load.mockResolvedValue({ ...defaults(), apiKey: 'test-key', selectedSourceId: source.id, interfaceLanguage: 'en' });
+  render(App);
+  await screen.findByRole('button', { name: /Start translation/ });
+  await fireEvent.click(screen.getByRole('button', { name: /Texts/ }));
+  current = { ...idle(), sessionId: 1, phase: 'error', message: 'Немає аудіовиходу.', transcripts: { original: 'retained', translated: 'збережено' } };
+  expect(await screen.findByRole('alert')).toHaveTextContent('No audio output.');
+  expect(screen.getByText('retained')).toBeVisible();
+  expect(screen.getByRole('status')).toHaveTextContent('Translation stopped');
+});

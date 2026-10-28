@@ -19,6 +19,29 @@ pub enum SessionPhase {
     Stopping,
     Error,
 }
+// Bounded rolling captions: the newest text stays, older text is trimmed from the front.
+#[derive(Clone, Default, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Transcripts {
+    pub original: String,
+    pub translated: String,
+}
+impl Transcripts {
+    const CAP: usize = 128_000;
+    fn append(target: &mut String, delta: &str) {
+        target.push_str(delta);
+        if target.len() > Self::CAP {
+            let overflow = target.len() - Self::CAP;
+            let boundary = (overflow..=target.len())
+                .find(|i| target.is_char_boundary(*i))
+                .expect("string length is a char boundary");
+            target.drain(..boundary);
+        }
+    }
+    pub fn extend(&mut self, input: bool, delta: &str) {
+        Self::append(if input { &mut self.original } else { &mut self.translated }, delta);
+    }
+}
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionStatus {
@@ -31,6 +54,7 @@ pub struct SessionStatus {
     pub playback_backlog_seconds: f64,
     pub playback_speed: f32,
     pub diagnostics: diagnostics::DiagnosticsSnapshot,
+    pub transcripts: Transcripts,
     pub message: Option<String>,
     #[serde(skip)]
     cleanup_error: Option<String>,
@@ -47,6 +71,7 @@ impl Default for SessionStatus {
             playback_backlog_seconds: 0.,
             playback_speed: 1.,
             diagnostics: diagnostics::DiagnosticsSnapshot::default(),
+            transcripts: Transcripts::default(),
             message: None,
             cleanup_error: None,
         }
@@ -463,6 +488,86 @@ mod tests {
         assert!(manager.wait_for_stop().await.is_err());
         manager.cancel_close();
         assert!(manager.start(settings(), "source".into()).is_err());
+    }
+    #[test]
+    fn transcripts_append_and_stay_bounded_on_char_boundaries() {
+        let mut transcripts = Transcripts::default();
+        transcripts.extend(true, "hello ");
+        transcripts.extend(true, "world");
+        transcripts.extend(false, "\u{041f}\u{0440}\u{0438}\u{0432}\u{0456}\u{0442}, ");
+        transcripts.extend(false, "\u{0441}\u{0432}\u{0456}\u{0442}");
+        assert_eq!(transcripts.original, "hello world");
+        assert_eq!(
+            transcripts.translated,
+            "\u{041f}\u{0440}\u{0438}\u{0432}\u{0456}\u{0442}, \u{0441}\u{0432}\u{0456}\u{0442}"
+        );
+        // 32003 four-byte emoji: 128012 bytes, exactly one emoji trimmed away.
+        transcripts.extend(true, &"\u{1f44b}".repeat(32003));
+        assert_eq!(transcripts.original.len(), Transcripts::CAP);
+        assert!(transcripts.original.ends_with('\u{1f44b}'));
+        // A trim that cannot land exactly on the cap drops the whole character.
+        let mut other = Transcripts::default();
+        other.extend(false, &"\u{20ac}".repeat(42667)); // 128001 bytes
+        assert_eq!(other.translated.len(), 127_998);
+        let mut emoji = Transcripts::default();
+        emoji.extend(true, &format!("{}x", "👋".repeat(32_000)));
+        assert_eq!(emoji.original.len(), 127_997);
+        assert!(std::str::from_utf8(other.translated.as_bytes()).is_ok());
+    }
+    #[tokio::test]
+    async fn transcripts_survive_stop_and_error_and_reset_on_reserved_start() {
+        use std::sync::mpsc;
+        struct TranscriptRunner {
+            entered: mpsc::Sender<usize>,
+            proceed: Mutex<mpsc::Receiver<()>>,
+            count: AtomicUsize,
+        }
+        impl SessionRunner for TranscriptRunner {
+            fn run(&self, _: Settings, _: String, cancel: CancellationToken, reporter: Reporter, _: Arc<LiveGains>) -> Result<(), SessionError> {
+                let run = self.count.fetch_add(1, Ordering::SeqCst);
+                self.entered.send(run).unwrap();
+                self.proceed.lock().unwrap().recv().unwrap();
+                reporter.update(|status| {
+                    status.phase = SessionPhase::Running;
+                    status.transcripts.extend(true, "original");
+                    status.transcripts.extend(false, "translated");
+                });
+                if run == 1 { return Err(SessionError::Operation("failure".into())); }
+                while !cancel.is_cancelled() { std::thread::sleep(Duration::from_millis(1)); }
+                Ok(())
+            }
+        }
+        let (entered_tx, entered_rx) = mpsc::channel();
+        let (proceed_tx, proceed_rx) = mpsc::channel();
+        let manager = SessionManager::with_runner(Arc::new(TranscriptRunner {
+            entered: entered_tx, proceed: Mutex::new(proceed_rx), count: AtomicUsize::new(0),
+        }));
+        manager.start(settings(), "source".into()).unwrap();
+        entered_rx.recv().unwrap();
+        proceed_tx.send(()).unwrap();
+        while manager.status().phase != SessionPhase::Running { tokio::task::yield_now().await; }
+        manager.stop().unwrap();
+        manager.wait_for_stop().await.unwrap();
+        assert_eq!(manager.status().transcripts.original, "original");
+        assert_eq!(manager.status().transcripts.translated, "translated");
+        assert!(manager.start(settings(), "".into()).is_err());
+        assert_eq!(manager.status().transcripts.original, "original");
+        manager.start(settings(), "source".into()).unwrap();
+        entered_rx.recv().unwrap();
+        assert!(manager.status().transcripts.original.is_empty());
+        assert!(manager.status().transcripts.translated.is_empty());
+        proceed_tx.send(()).unwrap();
+        manager.wait_for_stop().await.unwrap();
+        assert_eq!(manager.status().phase, SessionPhase::Error);
+        assert_eq!(manager.status().transcripts.original, "original");
+        assert_eq!(manager.status().transcripts.translated, "translated");
+        manager.start(settings(), "source".into()).unwrap();
+        entered_rx.recv().unwrap();
+        assert!(manager.status().transcripts.original.is_empty());
+        assert!(manager.status().transcripts.translated.is_empty());
+        proceed_tx.send(()).unwrap();
+        manager.stop().unwrap();
+        manager.wait_for_stop().await.unwrap();
     }
     #[test]
     fn stale_reporter_cannot_change_new_session() {

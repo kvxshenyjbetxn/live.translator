@@ -125,6 +125,12 @@ async fn run(
                             received += count as u64;
                         }
                         Ok(TranslationEvent::Ready) => {}
+                        Ok(TranslationEvent::InputTranscription(text)) => {
+                            reporter.update(|s| s.transcripts.extend(true, &text));
+                        }
+                        Ok(TranslationEvent::OutputTranscription(text)) => {
+                            reporter.update(|s| s.transcripts.extend(false, &text));
+                        }
                         Ok(TranslationEvent::Pong(payload)) => {
                             let now = Instant::now();
                             if let Some(rtt) = sender.pong(&payload, now) {

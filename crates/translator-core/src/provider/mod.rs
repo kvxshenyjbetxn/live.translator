@@ -72,11 +72,23 @@ pub enum TranslationEvent {
     Ready,
     Audio(Vec<i16>),
     Pong(Vec<u8>),
+    InputTranscription(String),
+    OutputTranscription(String),
 }
 pub fn setup(config: &TranslationConfig) -> Value {
     json!({"setup": {"model": "models/gemini-3.5-live-translate-preview", "generationConfig": {
         "responseModalities": ["AUDIO"], "translationConfig": {"targetLanguageCode": config.target_language, "echoTargetLanguage": false}
-    }}})
+    }, "inputAudioTranscription": {}, "outputAudioTranscription": {}}})
+}
+fn transcription_text(value: &Value, field: &str) -> Result<Option<String>, ProviderError> {
+    let Some(container) = value.pointer(&format!("/serverContent/{field}")) else {
+        return Ok(None);
+    };
+    if !container.is_object() {
+        return Err(ProviderError::Protocol);
+    }
+    let Some(text) = container.get("text") else { return Ok(None) };
+    Ok(Some(text.as_str().ok_or(ProviderError::Protocol)?.to_string()))
 }
 pub fn parse_events(bytes: &[u8]) -> Result<Vec<TranslationEvent>, ProviderError> {
     if bytes.len() > 1048576 {
@@ -129,6 +141,12 @@ pub fn parse_events(bytes: &[u8]) -> Result<Vec<TranslationEvent>, ProviderError
     {
         events.push(TranslationEvent::Ready);
     }
+    if let Some(text) = transcription_text(&value, "inputTranscription")? {
+        events.push(TranslationEvent::InputTranscription(text));
+    }
+    if let Some(text) = transcription_text(&value, "outputTranscription")? {
+        events.push(TranslationEvent::OutputTranscription(text));
+    }
     if let Some(parts) = value.pointer("/serverContent/modelTurn/parts") {
         let parts = parts.as_array().ok_or(ProviderError::Protocol)?;
         for part in parts {
@@ -175,7 +193,7 @@ pub fn audio_message(pcm: &[i16]) -> Value {
 mod tests {
     use super::*;
     #[test]
-    fn setup_and_pcm_framing() {
+    fn setup_requests_audio_and_both_transcriptions() {
         let config = TranslationConfig {
             api_key: "test-secret".into(),
             target_language: "uk".into(),
@@ -193,10 +211,49 @@ mod tests {
             setup["setup"]["generationConfig"]["translationConfig"]["echoTargetLanguage"],
             false
         );
+        assert_eq!(setup["setup"]["inputAudioTranscription"], json!({}));
+        assert_eq!(setup["setup"]["outputAudioTranscription"], json!({}));
         assert!(!setup.to_string().contains("test-secret"));
         assert_eq!(
             audio_message(&[0, -32768])["realtimeInput"]["audio"]["data"],
             "AAAAgA=="
+        );
+    }
+    #[test]
+    fn transcription_frames_parse_independently_of_audio() {
+        assert_eq!(
+            parse_events(br#"{"serverContent":{"inputTranscription":{"text":"Hello","isFinal":false,"languageCode":"en-US"}}}"#)
+                .unwrap(),
+            vec![TranslationEvent::InputTranscription("Hello".into())]
+        );
+        assert_eq!(
+            parse_events(br#"{"serverContent":{"outputTranscription":{"text":"\u041f\u0440\u0438\u0432\u0456\u0442","isFinal":true,"languageCode":"uk"}}}"#)
+                .unwrap(),
+            vec![TranslationEvent::OutputTranscription("\u{041f}\u{0440}\u{0438}\u{0432}\u{0456}\u{0442}".into())]
+        );
+        let combined = br#"{"serverContent":{"inputTranscription":{"text":"Hi"},"outputTranscription":{"text":"\u041f\u0440\u0438\u0432"},"modelTurn":{"parts":[]}}}"#;
+        assert_eq!(
+            parse_events(combined).unwrap(),
+            vec![
+                TranslationEvent::InputTranscription("Hi".into()),
+                TranslationEvent::OutputTranscription("\u{041f}\u{0440}\u{0438}\u{0432}".into())
+            ]
+        );
+    }
+    #[test]
+    fn malformed_transcription_containers_are_rejected() {
+        assert_eq!(
+            parse_events(br#"{"serverContent":{"inputTranscription":"text"}}"#),
+            Err(ProviderError::Protocol)
+        );
+        assert_eq!(
+            parse_events(br#"{"serverContent":{"outputTranscription":{"isFinal":true}}}"#)
+                .unwrap(),
+            Vec::<TranslationEvent>::new()
+        );
+        assert_eq!(
+            parse_events(br#"{"serverContent":{"outputTranscription":{"text":7}}}"#),
+            Err(ProviderError::Protocol)
         );
     }
     #[test]
