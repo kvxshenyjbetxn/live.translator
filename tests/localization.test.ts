@@ -50,3 +50,28 @@ test('shared catalog covers all native Ukrainian user-facing string literals', (
     }
   }
 });
+test('translation dropdown displays and selects localized target languages', async () => {
+  let selected = '';
+  render(Translation, { settings: defaults(), status: idle(), sourceName: 'Chrome', languages: [
+    { code: 'uk', name: 'Українська' }, { code: 'zh-Hans', name: 'Китайська (спрощена)' },
+    { code: 'pt-BR', name: 'Португальська (Бразилія)' },
+  ], canStart: true, onChange: patch => { selected = patch.targetLanguage ?? ''; }, onStart: () => {}, onStop: () => {} });
+  expect(screen.getByRole('option', { name: 'Китайська (спрощена)' })).toHaveValue('zh-Hans');
+  await act(() => locale.set('en'));
+  expect(screen.getByRole('option', { name: 'Chinese (Simplified)' })).toHaveValue('zh-Hans');
+  const select = screen.getByLabelText('Translate into') as HTMLSelectElement;
+  select.value = 'pt-BR';
+  await act(() => select.dispatchEvent(new Event('change', { bubbles: true })));
+  expect(selected).toBe('pt-BR');
+});
+test('shared target languages put Ukrainian first and sort the rest in Ukrainian', () => {
+  const files = import.meta.glob<string>('../crates/translator-core/src/settings.rs', { query: '?raw', import: 'default', eager: true });
+  const source = Object.values(files)[0];
+  const catalog = source.match(/pub const LANGUAGES: &\[Language\] = &\[([\s\S]*?)\n\];/);
+  expect(catalog).not.toBeNull();
+  const names = Array.from(catalog![1].matchAll(/name: "([^"]+)"/g), match => match[1]);
+  expect(names).toHaveLength(78);
+  expect(names[0]).toBe('Українська');
+  const collator = new Intl.Collator('uk');
+  expect(names.slice(1)).toEqual([...names.slice(1)].sort(collator.compare));
+});

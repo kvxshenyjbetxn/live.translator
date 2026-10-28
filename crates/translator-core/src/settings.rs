@@ -6,22 +6,319 @@ pub struct Language {
     pub code: &'static str,
     pub name: &'static str,
 }
+// https://ai.google.dev/gemini-api/docs/live-api/live-translate#supported-languages
 pub const LANGUAGES: &[Language] = &[
     Language {
         code: "uk",
         name: "Українська",
     },
     Language {
-        code: "en",
-        name: "English",
+        code: "az",
+        name: "Азербайджанська",
     },
     Language {
-        code: "pl",
-        name: "Polski",
+        code: "ak",
+        name: "Акан",
+    },
+    Language {
+        code: "sq",
+        name: "Албанська",
+    },
+    Language {
+        code: "am",
+        name: "Амхарська",
+    },
+    Language {
+        code: "en",
+        name: "Англійська",
+    },
+    Language {
+        code: "ar",
+        name: "Арабська",
+    },
+    Language {
+        code: "af",
+        name: "Африкаанс",
+    },
+    Language {
+        code: "eu",
+        name: "Баскська",
+    },
+    Language {
+        code: "bn",
+        name: "Бенгальська",
+    },
+    Language {
+        code: "be",
+        name: "Білоруська",
+    },
+    Language {
+        code: "my",
+        name: "Бірманська (М'янма)",
+    },
+    Language {
+        code: "bg",
+        name: "Болгарська",
+    },
+    Language {
+        code: "vi",
+        name: "В'єтнамська",
+    },
+    Language {
+        code: "hy",
+        name: "Вірменська",
+    },
+    Language {
+        code: "gl",
+        name: "Галісійська",
+    },
+    Language {
+        code: "hi",
+        name: "Гінді",
+    },
+    Language {
+        code: "el",
+        name: "Грецька",
+    },
+    Language {
+        code: "ka",
+        name: "Грузинська",
+    },
+    Language {
+        code: "gu",
+        name: "Гуджараті",
+    },
+    Language {
+        code: "da",
+        name: "Данська",
+    },
+    Language {
+        code: "et",
+        name: "Естонська",
+    },
+    Language {
+        code: "zu",
+        name: "Зулуська",
+    },
+    Language {
+        code: "he",
+        name: "Іврит",
+    },
+    Language {
+        code: "id",
+        name: "Індонезійська",
+    },
+    Language {
+        code: "is",
+        name: "Ісландська",
+    },
+    Language {
+        code: "es",
+        name: "Іспанська",
+    },
+    Language {
+        code: "it",
+        name: "Італійська",
+    },
+    Language {
+        code: "kk",
+        name: "Казахська",
+    },
+    Language {
+        code: "kn",
+        name: "Каннада",
+    },
+    Language {
+        code: "ca",
+        name: "Каталанська",
+    },
+    Language {
+        code: "zh-Hans",
+        name: "Китайська (спрощена)",
+    },
+    Language {
+        code: "zh-Hant",
+        name: "Китайська (традиційна)",
+    },
+    Language {
+        code: "rw",
+        name: "Кіньяруанда",
+    },
+    Language {
+        code: "ko",
+        name: "Корейська",
+    },
+    Language {
+        code: "km",
+        name: "Кхмерська",
+    },
+    Language {
+        code: "lo",
+        name: "Лаоська",
+    },
+    Language {
+        code: "lv",
+        name: "Латиська",
+    },
+    Language {
+        code: "lt",
+        name: "Литовська",
+    },
+    Language {
+        code: "mk",
+        name: "Македонська",
+    },
+    Language {
+        code: "ms",
+        name: "Малайська",
+    },
+    Language {
+        code: "ml",
+        name: "Малаялам",
+    },
+    Language {
+        code: "mr",
+        name: "Маратхі",
+    },
+    Language {
+        code: "mn",
+        name: "Монгольська",
+    },
+    Language {
+        code: "ne",
+        name: "Непальська",
+    },
+    Language {
+        code: "nl",
+        name: "Нідерландська",
     },
     Language {
         code: "de",
-        name: "Deutsch",
+        name: "Німецька",
+    },
+    Language {
+        code: "no",
+        name: "Норвезька",
+    },
+    Language {
+        code: "pa",
+        name: "Панджабі",
+    },
+    Language {
+        code: "fa",
+        name: "Перська",
+    },
+    Language {
+        code: "pl",
+        name: "Польська",
+    },
+    Language {
+        code: "pt-BR",
+        name: "Португальська (Бразилія)",
+    },
+    Language {
+        code: "pt-PT",
+        name: "Португальська (Португалія)",
+    },
+    Language {
+        code: "ru",
+        name: "Російська",
+    },
+    Language {
+        code: "ro",
+        name: "Румунська",
+    },
+    Language {
+        code: "sr",
+        name: "Сербська",
+    },
+    Language {
+        code: "si",
+        name: "Сингальська",
+    },
+    Language {
+        code: "sd",
+        name: "Сіндхі",
+    },
+    Language {
+        code: "sk",
+        name: "Словацька",
+    },
+    Language {
+        code: "sl",
+        name: "Словенська",
+    },
+    Language {
+        code: "sw",
+        name: "Суахілі",
+    },
+    Language {
+        code: "su",
+        name: "Сунданська",
+    },
+    Language {
+        code: "th",
+        name: "Тайська",
+    },
+    Language {
+        code: "ta",
+        name: "Тамільська",
+    },
+    Language {
+        code: "te",
+        name: "Телугу",
+    },
+    Language {
+        code: "tr",
+        name: "Турецька",
+    },
+    Language {
+        code: "hu",
+        name: "Угорська",
+    },
+    Language {
+        code: "uz",
+        name: "Узбецька",
+    },
+    Language {
+        code: "ur",
+        name: "Урду",
+    },
+    Language {
+        code: "fil",
+        name: "Філіппінська",
+    },
+    Language {
+        code: "fi",
+        name: "Фінська",
+    },
+    Language {
+        code: "fr",
+        name: "Французька",
+    },
+    Language {
+        code: "ha",
+        name: "Хауса",
+    },
+    Language {
+        code: "hr",
+        name: "Хорватська",
+    },
+    Language {
+        code: "cs",
+        name: "Чеська",
+    },
+    Language {
+        code: "sv",
+        name: "Шведська",
+    },
+    Language {
+        code: "jv",
+        name: "Яванська",
+    },
+    Language {
+        code: "ja",
+        name: "Японська",
     },
 ];
 
@@ -210,6 +507,48 @@ pub fn save_settings(dir: &Path, settings: &Settings) -> Result<(), SettingsErro
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn supported_languages_match_provider_and_roundtrip_settings() {
+        let expected: HashSet<&str> = "af ak sq am ar hy az eu be bn bg my ca zh-Hans zh-Hant hr cs da nl en et fil fi fr gl ka de el gu ha he hi hu is id it ja jv kn kk km rw ko lo lv lt mk ms ml mr mn ne no fa pl pt-BR pt-PT pa ro ru sr sd si sk sl es su sw sv ta te th tr uk ur uz vi zu".split_whitespace().collect();
+        let actual: HashSet<&str> = LANGUAGES.iter().map(|language| language.code).collect();
+        assert_eq!(expected.len(), 78);
+        assert_eq!(LANGUAGES.len(), 78);
+        assert_eq!(actual, expected);
+        assert_eq!(LANGUAGES[0].code, "uk");
+        let translations: serde_json::Value =
+            serde_json::from_str(include_str!("../../../src/lib/messages.json")).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        for language in LANGUAGES {
+            assert!(
+                translations[language.name]
+                    .as_str()
+                    .is_some_and(|name| !name.is_empty()),
+                "missing English name for {}",
+                language.code
+            );
+            let settings = Settings {
+                target_language: language.code.into(),
+                ..Settings::default()
+            };
+            settings.validate().unwrap();
+            save_settings(dir.path(), &settings).unwrap();
+            assert!(
+                load_settings(dir.path()).unwrap() == settings,
+                "{}",
+                language.code
+            );
+        }
+        for unsupported in ["xx", "nb", "zh", "pt"] {
+            let settings = Settings {
+                target_language: unsupported.into(),
+                ..Settings::default()
+            };
+            assert!(matches!(
+                settings.validate(),
+                Err(SettingsError::Validation)
+            ));
+        }
+    }
     fn record(id: &str, name: &str) -> SourceRef {
         SourceRef {
             id: id.into(),
