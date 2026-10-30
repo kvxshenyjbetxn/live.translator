@@ -30,18 +30,20 @@ const runSignatureCheck = (stub) => {
   }
 };
 
-test('signature check accepts an ad-hoc signature when codesign writes past the first match', () => {
+const shellTest = process.platform === 'win32' ? test.skip : test;
+
+shellTest('signature check accepts an ad-hoc signature when codesign writes past the first match', () => {
   const result = runSignatureCheck(codesignStub(['Executable=/tmp/app', 'Identifier=adhoc', 'Signature=adhoc']));
   expect(result.status).toBe(0);
 });
 
-test('signature check rejects a non-ad-hoc signature', () => {
+shellTest('signature check rejects a non-ad-hoc signature', () => {
   const result = runSignatureCheck(codesignStub(['Executable=/tmp/app', 'Signature=1234abcd']));
   expect(result.status).not.toBe(0);
   expect(result.stderr).toMatch(/ad-hoc/);
 });
 
-test('signature check rejects a failed codesign that still printed an ad-hoc signature', () => {
+shellTest('signature check rejects a failed codesign that still printed an ad-hoc signature', () => {
   const result = runSignatureCheck(codesignStub(['Signature=adhoc'], 3));
   expect(result.status).not.toBe(0);
   expect(result.stderr).toMatch(/codesign --display failed/);

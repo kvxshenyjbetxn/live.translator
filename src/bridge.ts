@@ -7,6 +7,7 @@ export const api = {
   shortcutStatus: () => invoke<ShortcutStatus>('shortcut_status'),
   suspendShortcut: (suspended: boolean) => invoke<void>('suspend_shortcut', { suspended }),
   show: () => invoke<void>('show_main_window'),
+  isWindows: () => invoke<boolean>('is_windows'),
   load: () => invoke<Settings>('load_settings'),
   save: (settings: Settings) => invoke<SaveResult>('save_settings', { settings }),
   directory: () => invoke<string>('config_directory'),

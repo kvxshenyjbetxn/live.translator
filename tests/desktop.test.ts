@@ -7,6 +7,16 @@ test('active shortcut uses its keypress snapshot, last mode uses remembered stab
   expect(decideDesktop({ kind: 'shortcut', value: 'app:/Active.app' }, context({ settings: { ...defaults(), shortcutMode: 'lastCaptured', lastCapturedSourceId: 'app:/Last.app' } }))).toEqual({ kind: 'start', sourceId: 'app:/Last.app' });
   expect(decideDesktop({ kind: 'toggle' }, context({ settings: { ...defaults(), selectedSourceId: 'app:/Selected.app' } }))).toEqual({ kind: 'start', sourceId: 'app:/Selected.app' });
 });
+test('Windows shortcut snapshot and foreground errors preserve last-captured behavior', () => {
+  const browserId = String.raw`exe:c:\apps\browser.exe`;
+  const lastId = String.raw`exe:c:\apps\last.exe`;
+  expect(browserId).toContain('\\');
+  expect(browserId).not.toContain('\b');
+  const last = context({ settings: { ...defaults(), shortcutMode: 'lastCaptured', lastCapturedSourceId: lastId } });
+  expect(decideDesktop({ kind: 'shortcut', value: browserId }, context())).toEqual({ kind: 'start', sourceId: browserId });
+  expect(decideDesktop({ kind: 'shortcut', error: 'unavailable' }, last)).toEqual({ kind: 'start', sourceId: lastId });
+  expect(decideDesktop({ kind: 'shortcut', error: 'unavailable' }, context())).toEqual({ kind: 'error', message: 'unavailable' });
+});
 test('errors and missing last application never fall back to selected source', () => {
   const c = context({ settings: { ...defaults(), selectedSourceId: 'app:/Selected.app' } });
   expect(decideDesktop({ kind: 'shortcut', error: 'self' }, c)).toEqual({ kind: 'error', message: 'self' });

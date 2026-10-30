@@ -21,6 +21,7 @@
   let status = $state(idle());
   let sources = $state<AudioSource[]>([]);
   let languages = $state<Language[]>([{ code: 'uk', name: 'Українська' }]);
+  let isWindows = $state(false);
   let directory = $state(''); let tab = $state<'translation' | 'texts' | 'settings'>('translation');
   let loaded = $state(false); let loading = $state(false); let closing = $state(false);
   let closeFailed = $state(false); let error = $state(''); let sourceError = $state('');
@@ -94,7 +95,8 @@
     loading = true; loaded = false; error = '';
     if (!desktop) { loading = false; return; }
     try {
-      const [value, path, available] = await Promise.all([api.load(), api.directory(), api.languages()]);
+      const [value, path, available, windows] = await Promise.all([api.load(), api.directory(), api.languages(), api.isWindows()]);
+      isWindows = windows;
       settings = value; directory = path; languages = available;
       autosave.init(value); liveVolumes.init(value); loaded = true;
       await updateShortcutStatus();
@@ -273,7 +275,7 @@
     <button class="navigation-item" class:chosen={tab === 'translation'} onclick={() => tab = 'translation'}>◉ &nbsp; {$t('Переклад')}</button>
     <button class="navigation-item" class:chosen={tab === 'texts'} onclick={() => tab = 'texts'}>☰ &nbsp; {$t('Тексти')}</button>
     <Sources visible={catalog.visible} hidden={catalog.hidden} selectedId={settings.selectedSourceId} disabled={!loaded || busy || starting || checking || closing} controlsDisabled={!loaded || closing || checking} onSelect={id => { change({ selectedSourceId: id }); tab = 'translation'; }} onRefresh={() => { void refreshSources(); }} onToggleFavorite={favorite} onHide={hide} onRestore={restore}/>
-    <div class="sidebar-bottom"><p>{$t('Захоплюється лише вибрана програма. Інші звуки не змінюються.')}</p><button class="navigation-item" class:chosen={tab === 'settings'} onclick={() => tab = 'settings'}>⚙ &nbsp; {$t('Налаштування')}</button><span class="version">v{version} · macOS-first</span></div>
+    <div class="sidebar-bottom"><p>{$t('Захоплюється лише вибрана програма. Інші звуки не змінюються.')}</p><button class="navigation-item" class:chosen={tab === 'settings'} onclick={() => tab = 'settings'}>⚙ &nbsp; {$t('Налаштування')}</button><span class="version">v{version}</span></div>
   </aside>
   <div class="main-column"><main>
     {#if !desktop}<div class="notice">{$t('Це браузерний перегляд інтерфейсу. Захоплення звуку та збереження доступні лише в desktop-програмі.')}</div>{/if}
@@ -282,7 +284,7 @@
     {#if desktop && !loaded}<div class="notice">{$t(loading ? 'Завантажуємо налаштування…' : 'Налаштування не завантажено. Файл не буде перезаписано.')}{#if !loading}<button class="secondary" onclick={() => { void load(); }}>{$t('Повторити завантаження')}</button>{/if}</div>{/if}
     {#if tab === 'settings'}<SettingsView {settings} {directory} state={saveState} disabled={!loaded || closing} {checking} connectionBlocked={busy || starting || !!waiting} {connectionMessage} {connectionError} {shortcutStatus} onRecording={recordShortcut} onCheck={() => { void checkConnection(); }} onChange={change} onRetry={() => { void retrySave(); }} onOpen={() => { void openDirectory(); }}/>
     {:else if tab === 'texts'}<Transcripts transcripts={status.transcripts} phase={displayStatus.phase} message={displayStatus.message}/>
-    {:else}<Translation {settings} status={displayStatus} sourceName={selectedName} {languages} disabled={!loaded || closing || checking || recording} canStart={canStartSource} waiting={!!waiting} onStart={() => { void start(); }} onStop={() => { void stop(); }} onChange={change}/>{/if}
+    {:else}<Translation {settings} {isWindows} status={displayStatus} sourceName={selectedName} {languages} disabled={!loaded || closing || checking || recording} canStart={canStartSource} waiting={!!waiting} onStart={() => { void start(); }} onStop={() => { void stop(); }} onChange={change}/>{/if}
   </main><footer><span class:error-text={saveState === 'error'}>{$t(!desktop ? 'Лише попередній перегляд' : !loaded ? 'Налаштування недоступні' : saveState === 'error' ? '● Не збережено · відкрийте налаштування' : saveState === 'saving' || saveState === 'unsaved' ? '◌ Зберігаємо…' : '● Усі зміни збережено')}</span><span>{$t('Аудіозапис не зберігається')}</span></footer></div>
 </div>
 {#if closing}<div class="close-overlay"><dialog open class="close-dialog" aria-modal="true" aria-label={$t('Завершення роботи')} tabindex="-1" use:focusCloseDialog><h2>{$t(closeFailed ? 'Не вдалося завершити роботу' : 'Завершуємо роботу…')}</h2><p>{$t(closeFailed ? 'Не вдалося зберегти зміни або завершити очищення аудіо. Можна повторити спробу чи вийти без збереження; очищення аудіо все одно обов’язкове.' : 'Зберігаємо останні зміни та повертаємо оригінальний звук.')}</p>{#if closeFailed}<div class="close-actions"><button onclick={() => { void requestClose(); }}>{$t('Повторити')}</button><button onclick={() => { void requestClose(true); }}>{$t('Вийти без збереження')}</button><button onclick={() => { void cancelClose(); }}>{$t('Залишитися')}</button></div>{/if}</dialog></div>{/if}

@@ -9,6 +9,11 @@ use translator_core::{
 };
 
 #[tauri::command]
+pub fn is_windows() -> bool {
+    cfg!(target_os = "windows")
+}
+
+#[tauri::command]
 pub fn load_settings(store: State<'_, ConfigStore>) -> Result<Settings, String> {
     let _guard = store
         .lock

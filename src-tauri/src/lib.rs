@@ -51,6 +51,7 @@ pub fn run() {
             desktop::shortcut::shortcut_status,
             desktop::shortcut::suspend_shortcut,
             desktop::show_main_window,
+            commands::is_windows,
             commands::load_settings,
             commands::save_settings,
             commands::config_directory,

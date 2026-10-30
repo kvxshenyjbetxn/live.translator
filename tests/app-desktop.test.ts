@@ -3,7 +3,7 @@ import { beforeEach, expect, test, vi } from 'vitest';
 import { defaults, idle, type AudioSource, type SessionStatus, type Settings } from '../src/types';
 import type { DesktopAction } from '../src/lib/desktop';
 const native = vi.hoisted(() => ({ handlers: new Map<string, (event: { payload: DesktopAction }) => void>(), api: {
-  load: vi.fn(), directory: vi.fn(), languages: vi.fn(), sources: vi.fn(), save: vi.fn(),
+  isWindows: vi.fn(), load: vi.fn(), directory: vi.fn(), languages: vi.fn(), sources: vi.fn(), save: vi.fn(),
   status: vi.fn(), start: vi.fn(), stop: vi.fn(), volumes: vi.fn(), ready: vi.fn(),
   syncDesktop: vi.fn(), shortcutStatus: vi.fn(), suspendShortcut: vi.fn(), show: vi.fn(),
   beginClose: vi.fn(), cancelClose: vi.fn(), finishClose: vi.fn(), checkConnection: vi.fn(), openDirectory: vi.fn(),
@@ -15,6 +15,7 @@ const source: AudioSource = { id: 'app:/Test.app', name: 'Test', active: true, d
 let current: SessionStatus;
 beforeEach(() => {
   vi.resetAllMocks(); native.handlers.clear(); current = idle();
+  native.api.isWindows.mockResolvedValue(false);
   native.api.load.mockResolvedValue({ ...defaults(), apiKey: 'test-key', selectedSourceId: source.id });
   native.api.save.mockImplementation(async (settings: Settings) => ({ captureShortcut: settings.captureShortcut, shortcutError: null }));
   native.api.show.mockResolvedValue(undefined);
@@ -49,6 +50,12 @@ test('restores persisted English AMOLED settings before showing the working UI',
   expect(document.documentElement.dataset.theme).toBe('amoled');
   expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#123456');
   expect(native.api.save).not.toHaveBeenCalled();
+});
+
+test('sidebar shows the package version without a platform label', async () => {
+  await loaded();
+  expect(screen.getByText('v0.10.0')).toBeVisible();
+  expect(screen.queryByText(/macOS-first/)).not.toBeInTheDocument();
 });
 
 async function loaded() {
@@ -434,4 +441,12 @@ test('texts tab shows a localized asynchronous session error and retained text',
   expect(await screen.findByRole('alert')).toHaveTextContent('No audio output.');
   expect(screen.getByText('retained')).toBeVisible();
   expect(screen.getByRole('status')).toHaveTextContent('Translation stopped');
+});
+
+test('Windows keeps native original controls outside the app', async () => {
+  native.api.isWindows.mockResolvedValue(true);
+  await loaded();
+  expect(screen.queryByLabelText('Оригінал')).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Переклад')).toBeEnabled();
+  expect(screen.getByText(/Керуйте ним у програмі або мікшері Windows/)).toBeInTheDocument();
 });

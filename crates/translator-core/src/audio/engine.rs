@@ -8,7 +8,7 @@ use std::sync::{
     Arc,
 };
 
-#[cfg(any(target_os = "macos", test))]
+#[cfg(any(target_os = "macos", target_os = "windows", test))]
 fn output_unchanged<T: PartialEq>(old: &T, new: &T, old_rate: u32, new_rate: u32) -> bool {
     old == new && old_rate == new_rate
 }
@@ -109,7 +109,21 @@ impl AudioEngine {
                     })
                 })
         }
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(target_os = "windows")]
+        {
+            cpal::default_host()
+                .default_output_device()
+                .is_some_and(|device| {
+                    let (
+                        cpal::platform::DeviceInner::Wasapi(old),
+                        cpal::platform::DeviceInner::Wasapi(new),
+                    ) = (self.device.as_inner(), device.as_inner());
+                    device.default_output_config().is_ok_and(|config| {
+                        output_unchanged(old, new, self.device_rate, config.sample_rate().0)
+                    })
+                })
+        }
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
         {
             let _ = (&self.device, self.device_rate);
             false
@@ -138,6 +152,8 @@ impl Output {
             meters,
             fault,
         } = self;
+        #[cfg(target_os = "windows")]
+        let _ = &mut original;
         let channels = config.channels as usize;
         device.build_output_stream(
             config,
@@ -145,8 +161,12 @@ impl Output {
                 let gains = gains.get();
                 translated.set_speed(f32::from_bits(speed.load(Ordering::Relaxed)));
                 for frame in output.chunks_mut(channels) {
+                    #[cfg(not(target_os = "windows"))]
+                    let original_sample = original.sample();
+                    #[cfg(target_os = "windows")]
+                    let original_sample = 0.;
                     frame.fill(T::from_sample(mix(
-                        original.sample(),
+                        original_sample,
                         translated.sample(),
                         gains,
                     )));
@@ -161,6 +181,27 @@ impl Output {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn output_identity_and_rate_must_both_match() {
+        assert!(super::output_unchanged(
+            &"endpoint-id",
+            &"endpoint-id",
+            48000,
+            48000
+        ));
+        assert!(!super::output_unchanged(
+            &"endpoint-id",
+            &"other-id",
+            48000,
+            48000
+        ));
+        assert!(!super::output_unchanged(
+            &"endpoint-id",
+            &"endpoint-id",
+            48000,
+            44100
+        ));
+    }
     #[test]
     fn different_outputs_with_identical_names_and_rates_are_not_current() {
         #[derive(PartialEq)]

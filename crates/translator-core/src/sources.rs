@@ -38,6 +38,11 @@ pub fn source_identity(executable: &str) -> (String, String) {
         (format!("exe:{executable}"), name)
     }
 }
+/// Windows audio sessions are grouped by the full executable path, not process ancestry.
+pub fn windows_source_identity(path: &str) -> (String, String) {
+    let name = path.rsplit(['\\', '/']).next().unwrap_or(path).to_owned();
+    (format!("exe:{}", path.to_lowercase()), name)
+}
 pub fn unchanged(previous: &[ProcessIdentity], current: &[ProcessIdentity]) -> bool {
     !previous.is_empty()
         && previous.iter().all(|old| {

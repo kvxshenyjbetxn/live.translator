@@ -18,7 +18,7 @@ test('first-party release versions stay synchronized', () => {
   expect(config.version).toBe(version);
   expect(workspace).toContain(`version = "${version}"`);
   for (const name of ['live-translator', 'translator-core']) {
-    expect(cargoLock).toContain(`name = "${name}"\nversion = "${version}"`);
+    expect(cargoLock.replace(/\r\n/g, '\n')).toContain(`name = "${name}"\nversion = "${version}"`);
   }
   for (const manifest of [desktopManifest, coreManifest]) {
     expect(manifest).toMatch(/version\.workspace\s*=\s*true/);

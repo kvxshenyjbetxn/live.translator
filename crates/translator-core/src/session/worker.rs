@@ -160,7 +160,13 @@ async fn run(
             let speed = engine.set_backlog(backlog);
             let callbacks = meters.callbacks.load(Ordering::Relaxed);
             if callbacks != previous_callbacks { last_callback = Instant::now(); previous_callbacks = callbacks; }
-            if last_callback.elapsed() > Duration::from_secs(3) { return Err(SessionError::Operation("Аудіо не надходить. Перевірте дозвіл «Запис системного аудіо» macOS і джерело.".into())); }
+            if last_callback.elapsed() > Duration::from_secs(3) {
+                #[cfg(target_os = "windows")]
+                let message = "Аудіо не надходить. Перевірте джерело та аудіопристрій Windows.";
+                #[cfg(not(target_os = "windows"))]
+                let message = "Аудіо не надходить. Перевірте дозвіл «Запис системного аудіо» macOS і джерело.";
+                return Err(SessionError::Operation(message.into()));
+            }
             if last_health.elapsed() >= Duration::from_secs(1) {
                 if !source_still_valid(&source) { return Err(SessionError::Operation("Аудіопроцес програми завершився або перезапустився. Оновіть список і запустіть переклад знову.".into())); }
                 if !engine.output_is_current() { return Err(SessionError::Operation("Аудіовихід змінився. Запустіть переклад знову з новим пристроєм.".into())); }
