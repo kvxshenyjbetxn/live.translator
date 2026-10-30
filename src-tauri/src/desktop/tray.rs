@@ -261,6 +261,11 @@ pub fn initialize(app: &AppHandle) -> tauri::Result<()> {
         .tooltip(format!("Live Translator · {loading}"))
         .menu(&menu(app, &model, &status)?)
         .show_menu_on_left_click(true)
+        .on_tray_icon_event(|tray, event| {
+            if let tauri::tray::TrayIconEvent::DoubleClick { .. } = event {
+                super::show(tray.app_handle());
+            }
+        })
         .on_menu_event(|app, event| {
             let id = event.id.as_ref();
             match id {

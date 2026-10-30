@@ -40,7 +40,11 @@ pub fn run() {
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 let app = window.app_handle();
-                if app.state::<lifecycle::CloseState>().should_intercept() {
+                // With a tray available, the close button only hides the window; "Exit" lives in the tray.
+                if app.tray_by_id("translator").is_some() {
+                    api.prevent_close();
+                    let _ = window.hide();
+                } else if app.state::<lifecycle::CloseState>().should_intercept() {
                     api.prevent_close();
                     lifecycle::request(app);
                 }
