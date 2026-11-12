@@ -74,6 +74,21 @@ pub enum TranslationEvent {
     Pong(Vec<u8>),
     InputTranscription(String),
     OutputTranscription(String),
+    /// The server will close the connection soon; open a replacement.
+    GoAway,
+}
+impl ProviderError {
+    /// Whether a fresh connection may fix the failure (as opposed to bad credentials, quota or a stop request).
+    pub fn is_recoverable(&self) -> bool {
+        matches!(
+            self,
+            Self::Closed
+                | Self::Transport { .. }
+                | Self::ServiceUnavailable { .. }
+                | Self::Network
+                | Self::Timeout
+        )
+    }
 }
 pub fn setup(config: &TranslationConfig) -> Value {
     json!({"setup": {"model": "models/gemini-3.5-live-translate-preview", "generationConfig": {
@@ -87,8 +102,12 @@ fn transcription_text(value: &Value, field: &str) -> Result<Option<String>, Prov
     if !container.is_object() {
         return Err(ProviderError::Protocol);
     }
-    let Some(text) = container.get("text") else { return Ok(None) };
-    Ok(Some(text.as_str().ok_or(ProviderError::Protocol)?.to_string()))
+    let Some(text) = container.get("text") else {
+        return Ok(None);
+    };
+    Ok(Some(
+        text.as_str().ok_or(ProviderError::Protocol)?.to_string(),
+    ))
 }
 pub fn parse_events(bytes: &[u8]) -> Result<Vec<TranslationEvent>, ProviderError> {
     if bytes.len() > 1048576 {
@@ -125,15 +144,11 @@ pub fn parse_events(bytes: &[u8]) -> Result<Vec<TranslationEvent>, ProviderError
             _ => ProviderError::Network,
         });
     }
-    if value.get("goAway").is_some()
-        || value
-            .pointer("/serverContent/interrupted")
-            .and_then(Value::as_bool)
-            == Some(true)
-    {
-        return Err(ProviderError::Closed);
-    }
+    // `serverContent.interrupted` is only a barge-in; the connection continues, so it is ignored.
     let mut events = Vec::new();
+    if value.get("goAway").is_some() {
+        events.push(TranslationEvent::GoAway);
+    }
     if value
         .get("setupComplete")
         .or_else(|| value.get("setup_complete"))
@@ -247,8 +262,7 @@ mod tests {
             Err(ProviderError::Protocol)
         );
         assert_eq!(
-            parse_events(br#"{"serverContent":{"outputTranscription":{"isFinal":true}}}"#)
-                .unwrap(),
+            parse_events(br#"{"serverContent":{"outputTranscription":{"isFinal":true}}}"#).unwrap(),
             Vec::<TranslationEvent>::new()
         );
         assert_eq!(
@@ -296,12 +310,22 @@ mod tests {
             Err(ProviderError::Quota)
         );
         assert_eq!(
-            parse_events(br#"{"goAway":{"timeLeft":"1s"}}"#),
-            Err(ProviderError::Closed)
+            parse_events(br#"{"goAway":{"timeLeft":"1s"}}"#).unwrap(),
+            vec![TranslationEvent::GoAway]
         );
         assert_eq!(
-            parse_events(br#"{"serverContent":{"interrupted":true}}"#),
-            Err(ProviderError::Closed)
+            parse_events(br#"{"goAway":"soon"}"#),
+            Err(ProviderError::Protocol)
+        );
+        assert!(parse_events(br#"{"serverContent":{"interrupted":true}}"#)
+            .unwrap()
+            .is_empty());
+        assert_eq!(
+            parse_events(
+                br#"{"serverContent":{"interrupted":true,"outputTranscription":{"text":"x"}}}"#
+            )
+            .unwrap(),
+            vec![TranslationEvent::OutputTranscription("x".into())]
         );
         assert!(
             !parse_events(br#"{"error":{"code":403,"message":"test-secret"}}"#)
@@ -309,5 +333,28 @@ mod tests {
                 .to_string()
                 .contains("test-secret")
         );
+    }
+    #[test]
+    fn only_connection_level_failures_are_recoverable() {
+        for recoverable in [
+            ProviderError::Closed,
+            ProviderError::Transport {
+                stage: NetworkStage::Receive,
+                reason: TransportFailure::Reset,
+            },
+            ProviderError::ServiceUnavailable { code: 503 },
+            ProviderError::Network,
+            ProviderError::Timeout,
+        ] {
+            assert!(recoverable.is_recoverable(), "{recoverable:?}");
+        }
+        for fatal in [
+            ProviderError::Credentials,
+            ProviderError::Quota,
+            ProviderError::Protocol,
+            ProviderError::Cancelled,
+        ] {
+            assert!(!fatal.is_recoverable(), "{fatal:?}");
+        }
     }
 }

@@ -405,4 +405,40 @@ mod tests {
         assert_eq!(receiver.next_event().await, Err(ProviderError::Cancelled));
         server.abort();
     }
+    #[tokio::test]
+    async fn go_away_is_delivered_as_an_event_before_the_socket_closes() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("ws://{}", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+            socket.next().await.unwrap().unwrap();
+            socket
+                .send(Message::Text(r#"{"setupComplete":{}}"#.into()))
+                .await
+                .unwrap();
+            socket
+                .send(Message::Text(r#"{"goAway":{"timeLeft":"12.5s"}}"#.into()))
+                .await
+                .unwrap();
+            let _ = socket.close(None).await;
+        });
+        let client = GeminiClient::connect_at(
+            TranslationConfig {
+                api_key: "test".into(),
+                target_language: "uk".into(),
+            },
+            CancellationToken::new(),
+            &url,
+        )
+        .await
+        .unwrap();
+        let (_sender, mut receiver) = client.split();
+        assert_eq!(
+            receiver.next_event().await.unwrap(),
+            TranslationEvent::GoAway
+        );
+        assert!(receiver.next_event().await.is_err());
+        server.await.unwrap();
+    }
 }
