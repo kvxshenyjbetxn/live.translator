@@ -183,13 +183,22 @@ checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 name = "app-gpui"
 version = "0.10.1"
 dependencies = [
+ "anyhow",
+ "dirs 6.0.0",
  "futures",
  "global-hotkey",
  "gpui-component",
  "gpui-pre",
  "gpui-pre-platform",
- "image",
+ "objc2 0.6.5",
+ "objc2-app-kit 0.3.2",
+ "open",
  "raw-window-handle",
+ "regex",
+ "serde",
+ "serde_json",
+ "tokio",
+ "translator-core",
  "tray-icon",
 ]
 

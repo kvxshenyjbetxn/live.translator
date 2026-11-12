@@ -14,6 +14,17 @@ gpui-component = "0.9.1"
 gpui_platform = { package = "gpui-pre-platform", version = "=0.3.12" }
 tray-icon = "=0.25.1"
 global-hotkey = "=0.8.0"
-image = { version = "0.25", default-features = false, features = ["png"] }
 futures = "0.3"
 raw-window-handle = "0.6"
+translator-core = { path = "../translator-core" }
+tokio = { version = "1", features = ["rt-multi-thread", "time", "sync"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+regex = "1"
+dirs = "6"
+open = "5"
+anyhow = "1"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "libc", "NSWorkspace", "NSRunningApplication"] }
