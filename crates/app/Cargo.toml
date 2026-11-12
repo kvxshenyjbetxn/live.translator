@@ -1,11 +1,11 @@
 [package]
-name = "app-gpui"
+name = "live-translator"
 version.workspace = true
 edition = "2021"
 publish = false
 
 [[bin]]
-name = "live-translator-gpui"
+name = "live-translator"
 path = "src/main.rs"
 
 [dependencies]
@@ -28,3 +28,6 @@ anyhow = "1"
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
 objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "libc", "NSWorkspace", "NSRunningApplication"] }
+
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1"

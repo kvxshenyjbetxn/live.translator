@@ -4,7 +4,7 @@
 
 ## Встановлення
 
-**Windows 11 (x64).** Завантажте ZIP-архів зі сторінки [Releases](https://github.com/kvxshenyjbetxn/live.translator/releases/latest), розпакуйте його в зручну папку та запустіть `live-translator.exe` — встановлювати нічого не потрібно. Якщо програма не відкривається, встановіть [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/).
+**Windows 11 (x64).** Завантажте ZIP-архів зі сторінки [Releases](https://github.com/kvxshenyjbetxn/live.translator/releases/latest), розпакуйте його в зручну папку та запустіть `live-translator.exe` — встановлювати нічого не потрібно.
 
 **macOS.** Доступна попередня [версія 0.9.0](https://github.com/kvxshenyjbetxn/live.translator/releases/tag/v0.9.0) для macOS 14.2+ на Mac із чипом M1 або новішим. Інструкція встановлення — всередині архіву.
 
@@ -30,5 +30,9 @@
 - Потрібен інтернет. Безкоштовне використання Google Gemini має ліміти, а переклад звучить із невеликою затримкою.
 - Після запуску перекладу звук передається Google. На безкоштовному рівні Google може використовувати дані для покращення своїх продуктів — враховуйте це для приватних розмов. [Умови сервісу](https://ai.google.dev/gemini-api/terms).
 - Ключ зберігається на вашому комп'ютері без шифрування. Не передавайте його іншим.
+
+## Збірка з коду
+
+Потрібен Rust (версію 1.96.1 підтягне `rust-toolchain.toml`). Запуск: `cargo run -p live-translator`. Архів для поширення: `scripts/package-windows.ps1` (Windows) або `scripts/package-macos.sh` (macOS).
 
 [Повідомити про проблему](https://github.com/kvxshenyjbetxn/live.translator/issues)

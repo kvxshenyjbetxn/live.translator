@@ -516,7 +516,7 @@ mod tests {
         assert_eq!(actual, expected);
         assert_eq!(LANGUAGES[0].code, "uk");
         let translations: serde_json::Value =
-            serde_json::from_str(include_str!("../../../src/lib/messages.json")).unwrap();
+            serde_json::from_str(include_str!("../../app/assets/messages.json")).unwrap();
         let dir = tempfile::tempdir().unwrap();
         for language in LANGUAGES {
             assert!(

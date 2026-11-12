@@ -9,7 +9,7 @@ fi
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
-version="$(node -p "require('./package.json').version")"
+version="$(cargo metadata --no-deps --format-version 1   | python3 -c 'import json,sys; print(next(p["version"] for p in json.load(sys.stdin)["packages"] if p["name"] == "live-translator"))')"
 target="$(rustc -vV | awk '/^host:/ {print $2}')"
 case "$target" in
   aarch64-apple-darwin) arch=arm64 ;;
@@ -17,14 +17,31 @@ case "$target" in
   *) echo "Unsupported macOS host: $target" >&2; exit 1 ;;
 esac
 
-# Fix output/identity; do not import certificates or notarize even if credentials
-# happen to be configured in the caller's environment.
-env -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID \
-  -u APPLE_API_KEY -u APPLE_API_ISSUER -u APPLE_API_KEY_PATH \
-  -u APPLE_CERTIFICATE -u APPLE_CERTIFICATE_PASSWORD \
-  CARGO_TARGET_DIR="$root/target" APPLE_SIGNING_IDENTITY=- \
-  npm run tauri -- build --bundles app --target "$target"
+cargo build --release --target "$target" -p live-translator
+
 app="$root/target/$target/release/bundle/macos/Live Translator.app"
+rm -rf "$app"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+cp "$root/target/$target/release/live-translator" "$app/Contents/MacOS/live-translator"
+cp "$root/crates/app/assets/icons/icon.icns" "$app/Contents/Resources/icon.icns"
+cat > "$app/Contents/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleName</key><string>Live Translator</string>
+<key>CFBundleDisplayName</key><string>Live Translator</string>
+<key>CFBundleIdentifier</key><string>dev.live-translator.desktop</string>
+<key>CFBundleExecutable</key><string>live-translator</string>
+<key>CFBundleIconFile</key><string>icon</string>
+<key>CFBundleShortVersionString</key><string>$version</string>
+<key>CFBundleVersion</key><string>$version</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>LSMinimumSystemVersion</key><string>14.2</string>
+<key>NSHighResolutionCapable</key><true/>
+<key>NSAudioCaptureUsageDescription</key><string>Live Translator captures only the selected application's audio and sends it to Google for live translation. No microphone or audio recording files.</string>
+</dict></plist>
+PLIST
+/usr/bin/codesign --force --deep --sign - "$app"
 /usr/bin/codesign --verify --deep --strict --verbose=2 "$app"
 bash "$root/scripts/verify-macos-signature.sh" "$app"
 

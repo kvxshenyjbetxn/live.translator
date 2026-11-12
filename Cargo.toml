@@ -1,6 +1,11 @@
 [workspace]
-members = ["crates/translator-core", "src-tauri", "crates/app-gpui"]
+members = ["crates/translator-core", "crates/app"]
 resolver = "2"
 
 [workspace.package]
 version = "0.10.1"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
