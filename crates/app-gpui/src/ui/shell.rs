@@ -2,6 +2,7 @@
 //! `src/App.svelte`).
 
 use super::{
+    settings::SettingsPage,
     theme::{self, Palette},
     widgets::{self, SEMI_BOLD},
 };
@@ -22,6 +23,7 @@ use gpui_component::slider::{SliderEvent, SliderState};
 
 pub struct Shell {
     pub(super) state: Entity<AppState>,
+    settings_page: Entity<SettingsPage>,
     pub(super) original_slider: Entity<SliderState>,
     pub(super) translation_slider: Entity<SliderState>,
     pub(super) language_open: bool,
@@ -107,8 +109,11 @@ impl Shell {
         })
         .detach();
 
+        let settings_page = cx.new(|cx| SettingsPage::new(state.clone(), window, cx));
+
         Self {
             state,
+            settings_page,
             original_slider,
             translation_slider,
             language_open: false,
@@ -340,17 +345,6 @@ impl Shell {
                 )
             })
     }
-
-    fn settings_placeholder(&self, s: &AppState, p: &Palette, compact: bool) -> impl IntoElement {
-        let locale = s.locale();
-        widgets::page_heading(
-            t("ВАШ ПРОСТІР", locale),
-            t("Налаштування", locale),
-            t("Зміни зберігаються автоматично.", locale),
-            p,
-            compact,
-        )
-    }
 }
 
 impl Render for Shell {
@@ -363,7 +357,7 @@ impl Render for Shell {
         let cx: &Context<Self> = cx;
 
         let page = match s.tab {
-            Tab::Settings => self.settings_placeholder(s, &p, compact).into_any_element(),
+            Tab::Settings => self.settings_page.clone().into_any_element(),
             Tab::Texts => self.transcripts(s, &p, compact, window, cx).into_any_element(),
             Tab::Translation => self.translation(s, &p, compact, cx).into_any_element(),
         };

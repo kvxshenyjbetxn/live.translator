@@ -1,5 +1,4 @@
 //! Shortcut recorder key mapping (port of `src/lib/shortcut.ts`). Used by the Settings page.
-#![allow(dead_code)]
 
 /// DOM-style physical key codes the recorder accepts.
 fn supported_code(code: &str) -> bool {
@@ -56,6 +55,55 @@ pub fn shortcut_from_key(code: &str, modifiers: &Modifiers, repeat: bool) -> Opt
     Some(parts.join("+"))
 }
 
+/// Maps a GPUI key name (lower-case logical key) to the DOM-style physical code the stored
+/// shortcut format uses; `None` for keys the recorder does not know.
+pub fn code_from_key(key: &str) -> Option<String> {
+    let named = match key {
+        "space" => "Space",
+        "enter" => "Enter",
+        "tab" => "Tab",
+        "backspace" => "Backspace",
+        "delete" => "Delete",
+        "insert" => "Insert",
+        "home" => "Home",
+        "end" => "End",
+        "pageup" => "PageUp",
+        "pagedown" => "PageDown",
+        "up" => "ArrowUp",
+        "down" => "ArrowDown",
+        "left" => "ArrowLeft",
+        "right" => "ArrowRight",
+        "-" => "Minus",
+        "=" => "Equal",
+        "[" => "BracketLeft",
+        "]" => "BracketRight",
+        "\\" => "Backslash",
+        ";" => "Semicolon",
+        "'" => "Quote",
+        "," => "Comma",
+        "." => "Period",
+        "/" => "Slash",
+        "`" => "Backquote",
+        _ => "",
+    };
+    if !named.is_empty() {
+        return Some(named.to_string());
+    }
+    let mut chars = key.chars();
+    if let (Some(only), None) = (chars.next(), chars.next()) {
+        if only.is_ascii_lowercase() {
+            return Some(format!("Key{}", only.to_ascii_uppercase()));
+        }
+        if only.is_ascii_digit() {
+            return Some(format!("Digit{only}"));
+        }
+        return None;
+    }
+    let number = key.strip_prefix('f')?;
+    (!number.starts_with('0') && number.parse::<u8>().is_ok_and(|n| (1..=24).contains(&n)))
+        .then(|| key.to_ascii_uppercase())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -86,5 +134,23 @@ mod tests {
         assert_eq!(shortcut_from_key("KeyT", &ctrl, true), None);
         assert!(shortcut_from_key("F24", &ctrl, false).is_some());
         assert!(shortcut_from_key("F25", &ctrl, false).is_none());
+    }
+
+    #[test]
+    fn gpui_key_names_map_to_stored_codes() {
+        let code = |key: &str| code_from_key(key);
+        assert_eq!(code("t").as_deref(), Some("KeyT"));
+        assert_eq!(code("7").as_deref(), Some("Digit7"));
+        assert_eq!(code("f12").as_deref(), Some("F12"));
+        assert_eq!(code("up").as_deref(), Some("ArrowUp"));
+        assert_eq!(code("`").as_deref(), Some("Backquote"));
+        assert_eq!(code("\\").as_deref(), Some("Backslash"));
+        assert_eq!(code("f25"), None);
+        assert_eq!(code("escape"), None);
+        assert_eq!(code("shift"), None);
+        assert_eq!(code("é"), None);
+        // Every mapped code must be accepted by the recorder's own validation.
+        let ctrl = mods(true, false, false, false);
+        assert!(shortcut_from_key(&code("f24").unwrap(), &ctrl, false).is_some());
     }
 }

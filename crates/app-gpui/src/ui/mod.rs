@@ -2,6 +2,7 @@
 
 mod close_dialog;
 mod diagnostics;
+mod settings;
 mod shell;
 mod sidebar;
 mod theme;

@@ -54,8 +54,6 @@ pub struct Target {
     pub name: String,
 }
 
-/// Read by the Settings page (phase B).
-#[allow(dead_code)]
 #[derive(Clone, Debug, Default)]
 pub struct ShortcutStatus {
     pub active: Option<String>,
@@ -80,7 +78,6 @@ pub struct AppState {
     pub status: SessionStatus,
     pub sources: Vec<AudioSource>,
     pub is_windows: bool,
-    #[allow(dead_code)] // shown on the Settings page (phase B)
     pub directory: String,
     pub tab: Tab,
     pub loaded: bool,
@@ -1159,7 +1156,6 @@ impl AppState {
         Ok(())
     }
 
-    #[allow(dead_code)] // the Settings page "retry" button (phase B)
     pub fn retry_save(&self, cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
             let result = flush(&this, cx).await;
@@ -1177,7 +1173,6 @@ impl AppState {
     // ---- phase B surface --------------------------------------------------------------------
 
     /// Suspends the global shortcut while the settings page records a new one.
-    #[allow(dead_code)]
     pub fn record_shortcut(&mut self, recording: bool, cx: &mut Context<Self>) -> Result<(), String> {
         if recording
             && (self.closing
@@ -1194,12 +1189,10 @@ impl AppState {
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub fn check_connection(&self, cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| check_connection(this, cx).await).detach();
     }
 
-    #[allow(dead_code)]
     pub fn open_directory(&mut self, cx: &mut Context<Self>) {
         if let Err(reason) = self.config.open_directory() {
             self.error = reason;
