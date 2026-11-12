@@ -1,0 +1,19 @@
+[package]
+name = "app-gpui"
+version.workspace = true
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "live-translator-gpui"
+path = "src/main.rs"
+
+[dependencies]
+gpui = { package = "gpui-pre", version = "=0.3.12" }
+gpui-component = "0.9.1"
+gpui_platform = { package = "gpui-pre-platform", version = "=0.3.12" }
+tray-icon = "=0.25.1"
+global-hotkey = "=0.8.0"
+image = { version = "0.25", default-features = false, features = ["png"] }
+futures = "0.3"
+raw-window-handle = "0.6"
