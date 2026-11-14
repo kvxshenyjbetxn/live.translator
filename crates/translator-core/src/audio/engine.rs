@@ -158,18 +158,21 @@ impl Output {
         device.build_output_stream(
             config,
             move |output: &mut [T], _| {
-                let gains = gains.get();
+                let gain = gains.get();
+                let mut sum = 0f32;
                 translated.set_speed(f32::from_bits(speed.load(Ordering::Relaxed)));
                 for frame in output.chunks_mut(channels) {
                     #[cfg(not(target_os = "windows"))]
                     let original_sample = original.sample();
                     #[cfg(target_os = "windows")]
                     let original_sample = 0.;
-                    frame.fill(T::from_sample(mix(
-                        original_sample,
-                        translated.sample(),
-                        gains,
-                    )));
+                    let t = translated.sample();
+                    sum += t * t;
+                    frame.fill(T::from_sample(mix(original_sample, t, gain)));
+                }
+                let frames = output.len() / channels;
+                if frames > 0 {
+                    gains.publish_level((sum / frames as f32).sqrt());
                 }
                 meters.played.store(translated.consumed, Ordering::Relaxed);
             },

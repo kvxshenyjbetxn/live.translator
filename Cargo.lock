@@ -3765,6 +3765,7 @@ dependencies = [
  "objc2 0.6.5",
  "objc2-app-kit 0.3.2",
  "open",
+ "png 0.18.1",
  "raw-window-handle",
  "regex",
  "serde",
@@ -3772,6 +3773,7 @@ dependencies = [
  "tokio",
  "translator-core",
  "tray-icon",
+ "windows-sys 0.61.2",
  "winresource",
 ]
 

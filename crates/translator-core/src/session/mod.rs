@@ -332,6 +332,10 @@ impl SessionManager {
             .unwrap_or_else(|e| e.into_inner())
             .clone()
     }
+    /// Translated-output RMS (max since last call); 0.0 when idle.
+    pub fn take_output_level(&self) -> f32 {
+        self.gains.take_level()
+    }
     pub fn set_gains(&self, original: f32, translation: f32) -> Result<(), SessionError> {
         self.gains
             .set(original, translation)

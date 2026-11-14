@@ -703,6 +703,11 @@ impl AppState {
         Locale::from_code(&self.settings.interface_language)
     }
 
+    /// Translated-output RMS since the last call (0.0 when idle).
+    pub fn output_level(&self) -> f32 {
+        self.session.take_output_level()
+    }
+
     pub fn busy(&self) -> bool {
         matches!(
             self.status.phase,

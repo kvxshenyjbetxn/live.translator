@@ -1,11 +1,11 @@
 use super::AudioError;
 use rtrb::Consumer;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 
-pub struct LiveGains(AtomicU64);
+pub struct LiveGains(AtomicU64, AtomicU32);
 impl LiveGains {
     pub fn new(original: f32, translation: f32) -> Result<Self, AudioError> {
-        let gains = Self(AtomicU64::new(0));
+        let gains = Self(AtomicU64::new(0), AtomicU32::new(0));
         gains.set(original, translation)?;
         Ok(gains)
     }
@@ -18,6 +18,15 @@ impl LiveGains {
             Ordering::Relaxed,
         );
         Ok(())
+    }
+    /// Keeps the maximum translated-output RMS seen since the last `take_level`.
+    pub fn publish_level(&self, rms: f32) {
+        let _ = self.1.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |bits| {
+            (rms > f32::from_bits(bits)).then(|| rms.to_bits())
+        });
+    }
+    pub fn take_level(&self) -> f32 {
+        f32::from_bits(self.1.swap(0, Ordering::Relaxed))
     }
     pub fn get(&self) -> (f32, f32) {
         let bits = self.0.load(Ordering::Relaxed);

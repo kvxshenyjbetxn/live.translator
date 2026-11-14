@@ -2,6 +2,7 @@
 
 mod close_dialog;
 mod diagnostics;
+mod equalizer;
 mod settings;
 mod shell;
 mod sidebar;
@@ -10,4 +11,5 @@ mod transcripts;
 mod translation;
 mod widgets;
 
+pub use equalizer::{Equalizer, PILL_HEIGHT, PILL_WIDTH};
 pub use shell::Shell;

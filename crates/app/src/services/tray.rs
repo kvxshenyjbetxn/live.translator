@@ -64,32 +64,32 @@ pub fn health(status: &SessionStatus) -> (Color, &'static str) {
     }
 }
 
-fn icon(color: Color) -> Result<Icon, String> {
-    let dot = match color {
-        Color::Gray => [145, 151, 160, 255],
-        Color::Yellow => [244, 183, 45, 255],
-        Color::Green => [42, 193, 111, 255],
-        Color::Red => [237, 76, 86, 255],
+fn icon() -> Result<Icon, String> {
+    let mut decoder = png::Decoder::new(std::io::Cursor::new(include_bytes!(
+        "../../assets/icons/32x32.png"
+    )));
+    decoder.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
+    let mut reader = decoder.read_info().map_err(|e| e.to_string())?;
+    let size = reader
+        .output_buffer_size()
+        .ok_or("tray icon is too large")?;
+    let mut buf = vec![0; size];
+    let info = reader.next_frame(&mut buf).map_err(|e| e.to_string())?;
+    buf.truncate(info.buffer_size());
+    let rgba: Vec<u8> = match info.color_type {
+        png::ColorType::Rgba => buf,
+        png::ColorType::Rgb => buf
+            .chunks_exact(3)
+            .flat_map(|p| [p[0], p[1], p[2], 255])
+            .collect(),
+        png::ColorType::GrayscaleAlpha => buf
+            .chunks_exact(2)
+            .flat_map(|p| [p[0], p[0], p[0], p[1]])
+            .collect(),
+        png::ColorType::Grayscale => buf.iter().flat_map(|&g| [g, g, g, 255]).collect(),
+        png::ColorType::Indexed => return Err("unexpected indexed tray icon".into()),
     };
-    let mut pixels = vec![0; 24 * 24 * 4];
-    for y in 0..24_i32 {
-        for x in 0..24_i32 {
-            // Light outline/dark core remain visible on both light and dark menu bars.
-            let distance = (x - 11).pow(2) + (y - 11).pow(2);
-            let pixel = if distance <= 81 {
-                Some(dot)
-            } else if distance <= 100 {
-                Some([245, 245, 245, 255])
-            } else {
-                None
-            };
-            if let Some(pixel) = pixel {
-                let i = ((y * 24 + x) * 4) as usize;
-                pixels[i..i + 4].copy_from_slice(&pixel);
-            }
-        }
-    }
-    Icon::from_rgba(pixels, 24, 24).map_err(|e| e.to_string())
+    Icon::from_rgba(rgba, info.width, info.height).map_err(|e| e.to_string())
 }
 
 /// Tray toggle label: an explicit wait must be cancellable before it is a running stop.
@@ -206,7 +206,7 @@ impl Tray {
 
         let tray = TrayIconBuilder::new()
             .with_id("translator")
-            .with_icon(icon(Color::Gray)?)
+            .with_icon(icon()?)
             .with_tooltip(tooltip(&loading))
             .with_menu(Box::new(menu))
             .with_menu_on_left_click(true)
@@ -234,14 +234,11 @@ impl Tray {
         Ok(())
     }
 
-    /// Reflects the session status in the icon colour, tooltip and status line.
+    /// Reflects the session status in the tooltip and status line.
     pub fn update(&mut self, status: &SessionStatus) {
         let next = health(status);
         if self.last_health == next {
             return;
-        }
-        if let Ok(image) = icon(next.0) {
-            let _ = self.icon.set_icon(Some(image));
         }
         let text = t(next.1, Locale::from_code(&self.model.interface_language));
         let _ = self.icon.set_tooltip(Some(tooltip(&text)));

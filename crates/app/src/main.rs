@@ -10,12 +10,12 @@ mod state;
 mod ui;
 
 use gpui::{
-    prelude::*, px, size, App, Bounds, QuitMode, TitlebarOptions, WindowBounds, WindowHandle,
-    WindowOptions,
+    point, prelude::*, px, size, App, Bounds, QuitMode, TitlebarOptions, WindowBackgroundAppearance,
+    WindowBounds, WindowHandle, WindowKind, WindowOptions,
 };
 use gpui_component::{Root, Theme, ThemeMode};
 use state::AppState;
-use ui::Shell;
+use ui::{Equalizer, Shell, PILL_HEIGHT, PILL_WIDTH};
 
 fn main() {
     gpui_platform::application()
@@ -63,5 +63,34 @@ fn main() {
                     },
                 )
                 .expect("failed to open window");
+
+            // Overlay: borderless transparent pop-up with the equalizer pill, always on top,
+            // never activated. Created hidden; the Equalizer shows/hides it from AppState.
+            let mut overlay_hwnd = 0;
+            let overlay = cx.open_window(
+                WindowOptions {
+                    window_bounds: Some(WindowBounds::Windowed(Bounds {
+                        origin: point(px(0.0), px(0.0)),
+                        size: size(px(PILL_WIDTH), px(PILL_HEIGHT)),
+                    })),
+                    titlebar: None,
+                    focus: false,
+                    show: false,
+                    kind: WindowKind::PopUp,
+                    is_movable: false,
+                    is_resizable: false,
+                    is_minimizable: false,
+                    window_background: WindowBackgroundAppearance::Transparent,
+                    ..Default::default()
+                },
+                |window, cx| {
+                    overlay_hwnd = native::hwnd_of(window);
+                    cx.new(|cx| Equalizer::new(state.clone(), overlay_hwnd, cx))
+                },
+            );
+            match overlay {
+                Ok(_) => native::prepare_overlay(overlay_hwnd),
+                Err(error) => eprintln!("Failed to create the overlay window: {error}"),
+            }
         });
 }
